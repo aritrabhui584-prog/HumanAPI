@@ -66,10 +66,12 @@ export const AdminShell: React.FC<AdminShellProps> = ({ initialTab = "overview" 
       case "categories":
       case "feature-controls":
       case "system-health":
+      case "system":
         return <AdminSystemView />;
       case "audit-log":
         return <AdminAuditLogView />;
       case "admin-accounts":
+      case "admins":
       case "settings":
         return <AdminAccountsView />;
       default:

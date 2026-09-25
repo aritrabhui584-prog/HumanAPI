@@ -312,20 +312,29 @@ const AppRouter: React.FC = () => {
 
       case "admin":
       case "admin-overview":
+      case "admin-live-activity":
       case "admin-users":
       case "admin-experts":
+      case "admin-applications":
+      case "admin-banned-accounts":
       case "admin-sessions":
+      case "admin-reports":
+      case "admin-reviews":
       case "admin-payments":
       case "admin-payouts":
-      case "admin-reports":
+      case "admin-platform-fees":
       case "admin-accreditation":
+      case "admin-categories":
+      case "admin-feature-controls":
+      case "admin-system-health":
       case "admin-system":
       case "admin-audit-log":
       case "admin-settings":
       case "admin-accounts":
+      case "admin-admin-accounts":
         return (
           <AdminRequireAuth>
-            <AdminShell initialTab={currentView.replace("admin-", "")} />
+            <AdminShell initialTab={currentView === "admin" ? "overview" : currentView.replace("admin-", "")} />
           </AdminRequireAuth>
         );
 
