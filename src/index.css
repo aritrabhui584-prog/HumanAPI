@@ -1,0 +1,480 @@
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Instrument+Sans:ital,wght@0,400..700;1,400..700&display=swap');
+@import "tailwindcss";
+html {
+  width: 100%;
+  min-height: 100%;
+  margin: 0;
+  padding: 0;
+  background-color: #F6F0E7;
+  overscroll-behavior-y: none;
+  scroll-behavior: smooth;
+}
+
+body {
+  width: 100%;
+  min-height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden;
+  overflow-y: visible;
+  background-color: #F6F0E7;
+  color: #342A24;
+  overscroll-behavior-y: none;
+}
+
+#root {
+  width: 100%;
+  min-height: 100%;
+  margin: 0;
+  padding: 0;
+  background-color: #F6F0E7;
+}
+
+/* ==========================================================================
+   00 — CONSULTATION ROOM SHELL ARCHITECTURE (100dvh Dynamic Viewport)
+   ========================================================================== */
+.consultation-room {
+  position: relative;
+  width: 100%;
+  height: 100dvh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background-color: #1E1714;
+}
+
+.consultation-main {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* ==========================================================================
+   Postamp Grotesk Family — 11 Font Styles (Fontfabric)
+   5 weights (Thin, Light, Regular, Medium, Bold) in Condensed & Mix + Variable
+   ========================================================================== */
+
+/* 1. Postamp Grotesk Thin (100) */
+@font-face {
+  font-family: 'Postamp Grotesk';
+  font-weight: 100;
+  font-style: normal;
+  font-display: swap;
+  src: local('Postamp Grotesk Thin'), local('PostampGrotesk-Thin'), local('PostampGroteskCondensed-Thin');
+}
+
+/* 2. Postamp Grotesk Light (300) */
+@font-face {
+  font-family: 'Postamp Grotesk';
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+  src: local('Postamp Grotesk Light'), local('PostampGrotesk-Light'), local('PostampGroteskCondensed-Light');
+}
+
+/* 3. Postamp Grotesk Regular (400) */
+@font-face {
+  font-family: 'Postamp Grotesk';
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+  src: local('Postamp Grotesk Regular'), local('Postamp Grotesk'), local('PostampGrotesk-Regular'), local('PostampGroteskCondensed-Regular');
+}
+
+/* 4. Postamp Grotesk Medium (500) */
+@font-face {
+  font-family: 'Postamp Grotesk';
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+  src: local('Postamp Grotesk Medium'), local('PostampGrotesk-Medium'), local('PostampGroteskCondensed-Medium');
+}
+
+/* 5. Postamp Grotesk Bold (700) */
+@font-face {
+  font-family: 'Postamp Grotesk';
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+  src: local('Postamp Grotesk Bold'), local('PostampGrotesk-Bold'), local('PostampGroteskCondensed-Bold');
+}
+
+/* 6. Postamp Grotesk Mix Thin (100) */
+@font-face {
+  font-family: 'Postamp Grotesk Mix';
+  font-weight: 100;
+  font-style: normal;
+  font-display: swap;
+  src: local('Postamp Grotesk Mix Thin'), local('PostampGroteskMix-Thin');
+}
+
+/* 7. Postamp Grotesk Mix Light (300) */
+@font-face {
+  font-family: 'Postamp Grotesk Mix';
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+  src: local('Postamp Grotesk Mix Light'), local('PostampGroteskMix-Light');
+}
+
+/* 8. Postamp Grotesk Mix Regular (400) */
+@font-face {
+  font-family: 'Postamp Grotesk Mix';
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+  src: local('Postamp Grotesk Mix Regular'), local('Postamp Grotesk Mix'), local('PostampGroteskMix-Regular');
+}
+
+/* 9. Postamp Grotesk Mix Medium (500) */
+@font-face {
+  font-family: 'Postamp Grotesk Mix';
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+  src: local('Postamp Grotesk Mix Medium'), local('PostampGroteskMix-Medium');
+}
+
+/* 10. Postamp Grotesk Mix Bold (700) */
+@font-face {
+  font-family: 'Postamp Grotesk Mix';
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+  src: local('Postamp Grotesk Mix Bold'), local('PostampGroteskMix-Bold');
+}
+
+/* 11. Postamp Grotesk Variable (Weight & Width Axes) */
+@font-face {
+  font-family: 'Postamp Grotesk Variable';
+  font-weight: 100 900;
+  font-stretch: 75% 100%;
+  font-style: normal;
+  font-display: swap;
+  src: local('Postamp Grotesk Variable'), local('PostampGrotesk-Variable');
+}
+
+@theme {
+  --font-sans: 'Postamp Grotesk', 'Postamp Grotesk Mix', 'Postamp Grotesk Condensed', 'Post Grotesk', 'Instrument Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-display: 'Postamp Grotesk Mix', 'Postamp Grotesk', 'Post Grotesk', 'Instrument Serif', Georgia, serif;
+  --font-serif: 'Postamp Grotesk', 'Postamp Grotesk Mix', 'Postamp Grotesk Condensed', 'Post Grotesk', 'Instrument Serif', Georgia, serif;
+  --font-tech: 'Postamp Grotesk', 'IBM Plex Sans', sans-serif;
+  --font-postamp: 'Postamp Grotesk', 'Postamp Grotesk Mix', 'Postamp Grotesk Condensed', sans-serif;
+  --font-postamp-mix: 'Postamp Grotesk Mix', 'Postamp Grotesk', sans-serif;
+  --font-mono: 'JetBrains Mono', 'Space Mono', monospace;
+
+  /* HumanAPI Precise Warm Palette */
+  --color-warm-ivory: #F6F0E7;
+  --color-cream: #FFF9F2;
+  --color-soft-sand: #E8DCCB;
+  --color-burnt-orange: #C96F42;
+  --color-terracotta: #B85D3D;
+  --color-muted-sage: #77816C;
+  --color-warm-cocoa: #342A24;
+  --color-taupe: #7B6C60;
+  --color-muted-gold: #B89152;
+  --color-soft-white: #FFFCF7;
+
+  /* Dark Room Surfaces (Strictly No pure black #000) */
+  --color-room-base: #1E1714;
+  --color-room-surface: #28201A;
+  --color-room-elevated: #332720;
+
+  /* Semantic mappings for legacy code compatibility */
+  --color-ivory: #F6F0E7;
+  --color-border-warm: #E8DCCB;
+  --color-sage: #77816C;
+  --color-cocoa: #342A24;
+}
+
+:root {
+  --hero-video-position-x: 50%;
+  --hero-video-position-y: 50%;
+}
+
+/* ==========================================================================
+   01 — HERO & CINEMATIC VIDEO ARCHITECTURE (Strict Full-Bleed 100vw)
+   ========================================================================== */
+.hero {
+  position: relative;
+  width: 100vw;
+  max-width: none;
+  height: 100dvh;
+  min-height: 100dvh;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  background-color: #160706;
+}
+
+.hero-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  pointer-events: none;
+  background-color: #160706;
+}
+
+.hero-video video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  object-fit: cover;
+  object-position: center center;
+  transform: none !important;
+  zoom: normal;
+  filter: none !important;
+}
+
+@media (max-width: 767px) {
+  .hero-video video {
+    object-fit: cover;
+    object-position: center center;
+  }
+}
+
+
+button, input, optgroup, select, textarea {
+  font-family: inherit;
+}
+
+/* Subtle Editorial Warm Paper Texture & Contour lines */
+.bg-warm-canvas {
+  background-color: #F6F0E7;
+  background-image: 
+    radial-gradient(ellipse at 15% 10%, rgba(201, 111, 66, 0.04) 0%, transparent 50%),
+    radial-gradient(ellipse at 85% 25%, rgba(184, 145, 82, 0.05) 0%, transparent 45%),
+    radial-gradient(ellipse at 50% 80%, rgba(119, 129, 108, 0.04) 0%, transparent 60%);
+}
+
+.bg-subtle-grain {
+  background-image: radial-gradient(rgba(52, 42, 36, 0.03) 1px, transparent 0);
+  background-size: 24px 24px;
+}
+
+/* Custom scrollbars with warm tones */
+::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+::-webkit-scrollbar-track {
+  background: #F6F0E7;
+}
+::-webkit-scrollbar-thumb {
+  background: #E8DCCB;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #C96F42;
+}
+
+/* Refined warm elevations */
+.shadow-warm-xs {
+  box-shadow: 0 1px 3px rgba(52, 42, 36, 0.05);
+}
+.shadow-warm-sm {
+  box-shadow: 0 2px 8px -1px rgba(52, 42, 36, 0.06);
+}
+.shadow-warm-md {
+  box-shadow: 0 8px 24px -4px rgba(52, 42, 36, 0.08), 0 2px 6px -1px rgba(52, 42, 36, 0.03);
+}
+.shadow-warm-lg {
+  box-shadow: 0 16px 36px -6px rgba(52, 42, 36, 0.10), 0 4px 12px -2px rgba(52, 42, 36, 0.04);
+}
+.shadow-warm-card {
+  box-shadow: 0 1px 3px rgba(52, 42, 36, 0.04), 0 12px 28px -4px rgba(52, 42, 36, 0.06);
+}
+
+/* 02 — VIEWPORT FIT ARCHITECTURE */
+.app-viewport-shell {
+  height: 100dvh;
+  min-height: 100dvh;
+  max-height: 100dvh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.scroll-region {
+  overflow-y: auto;
+  overflow-x: hidden;
+  min-height: 0;
+  flex: 1;
+}
+
+/* ==========================================================================
+   MOBILE LANDSCAPE-ONLY AUTHENTICATED APPLICATION SHELL
+   ========================================================================== */
+
+/* Hide portrait orientation prompt overlay completely */
+.portrait-prompt-overlay {
+  display: none !important;
+}
+
+/* Hide scrollbars utility */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* 13 — DELIBERATE TYPOGRAPHY UTILITIES */
+.font-display {
+  font-family: var(--font-display);
+}
+
+.font-editorial {
+  font-family: var(--font-serif);
+}
+
+.font-tech {
+  font-family: var(--font-tech);
+}
+
+.font-timer {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+/* 18 & 19 — MICRO-INTERACTIONS & MOTION */
+.hover-subtle-lift {
+  transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.hover-subtle-lift:hover {
+  transform: translateY(-2px);
+}
+
+.hover-btn-lift {
+  transition: transform 0.15s ease, background-color 0.15s ease;
+}
+.hover-btn-lift:hover {
+  transform: translateY(-1px);
+}
+
+/* 37 — SIGNATURE HUMANAPI DETAILS */
+.human-connection-line {
+  background: linear-gradient(90deg, #C96F42 0%, #B89152 50%, #77816C 100%);
+  height: 2px;
+}
+
+.conversation-pulse {
+  position: relative;
+}
+.conversation-pulse::after {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: 9999px;
+  border: 1.5px solid #77816C;
+  opacity: 0.6;
+  animation: pulse-ring 2.4s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+}
+
+@keyframes pulse-ring {
+  0% {
+    transform: scale(0.95);
+    opacity: 0.8;
+  }
+  50% {
+    transform: scale(1.4);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1.4);
+    opacity: 0;
+  }
+}
+
+.overflow-wrap-anywhere {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+/* ==========================================================================
+   DESKTOP CUSTOM CURSOR — "Cool Orange Outer Glow Pointer"
+   Applies strictly to devices with fine pointer capabilities (hover & pointer: fine).
+   Mobile, touch screens, phones, and tablets are explicitly excluded.
+   ========================================================================== */
+@media (hover: hover) and (pointer: fine) {
+  * {
+    cursor: url('https://cdn.cursors-4u.net/previews/cool-orange-outer-glow-pointer-69900109-32.webp') 36 35, auto;
+  }
+
+  /* Preserve standard text editing carets */
+  input[type="text"],
+  input[type="password"],
+  input[type="email"],
+  input[type="number"],
+  input[type="search"],
+  input[type="tel"],
+  input[type="url"],
+  textarea,
+  [contenteditable="true"],
+  .code-editor,
+  .monaco-editor,
+  .cm-content,
+  .cursor-text {
+    cursor: text !important;
+  }
+
+  /* Preserve interactive click affordances */
+  a,
+  button,
+  select,
+  [role="button"],
+  input[type="submit"],
+  input[type="button"],
+  input[type="reset"],
+  input[type="checkbox"],
+  input[type="radio"],
+  .cursor-pointer {
+    cursor: pointer;
+  }
+
+  /* Preserve drag, resize, disabled, and specialized control cursors */
+  .cursor-grab { cursor: grab !important; }
+  .cursor-grabbing { cursor: grabbing !important; }
+  .cursor-col-resize { cursor: col-resize !important; }
+  .cursor-row-resize { cursor: row-resize !important; }
+  .cursor-move { cursor: move !important; }
+  .cursor-not-allowed, :disabled { cursor: not-allowed !important; }
+  .cursor-ew-resize { cursor: ew-resize !important; }
+  .cursor-ns-resize { cursor: ns-resize !important; }
+  .cursor-nesw-resize { cursor: nesw-resize !important; }
+  .cursor-nwse-resize { cursor: nwse-resize !important; }
+}
+
+/* ==========================================================================
+   ACCESSIBILITY — PREFERS REDUCED MOTION SUPPORT
+   Disables or significantly reduces non-essential animations when requested by user OS.
+   ========================================================================== */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+
+
+

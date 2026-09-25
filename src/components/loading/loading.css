@@ -1,0 +1,61 @@
+/* HumanAPI Global Professional Loading System Styles */
+
+/* 1. Canonical Logo Mark Loading Pulse (1.8s - 2.0s cycle) */
+@keyframes humanapi-logo-pulse-anim {
+  0% {
+    transform: scale(1);
+    opacity: 0.88;
+    filter: drop-shadow(0 0 2px rgba(201, 111, 66, 0.15));
+  }
+  50% {
+    transform: scale(1.04);
+    opacity: 1;
+    filter: drop-shadow(0 0 10px rgba(201, 111, 66, 0.3));
+  }
+  100% {
+    transform: scale(1);
+    opacity: 0.88;
+    filter: drop-shadow(0 0 2px rgba(201, 111, 66, 0.15));
+  }
+}
+
+.animate-humanapi-logo-pulse {
+  animation: humanapi-logo-pulse-anim 1.9s ease-in-out infinite;
+}
+
+/* 2. Soft Warm Skeleton Pulse & Shimmer */
+@keyframes humanapi-shimmer-anim {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.humanapi-skeleton-pulse {
+  background: linear-gradient(
+    90deg,
+    #E8DCCB 0%,
+    #F6F0E7 35%,
+    #FFF9F2 50%,
+    #F6F0E7 65%,
+    #E8DCCB 100%
+  );
+  background-size: 200% 100%;
+  animation: humanapi-shimmer-anim 2.2s ease-in-out infinite;
+}
+
+/* 3. Reduced Motion Support */
+@media (prefers-reduced-motion: reduce) {
+  .animate-humanapi-logo-pulse {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+  .humanapi-skeleton-pulse {
+    animation: none !important;
+    background: #E8DCCB !important;
+    opacity: 0.7 !important;
+  }
+}

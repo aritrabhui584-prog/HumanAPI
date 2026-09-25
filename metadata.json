@@ -1,0 +1,7 @@
+{
+  "name": "HumanAPI",
+  "description": "Premium human expert consultation marketplace with verified professionals, 5/10/15-minute sessions, and dedicated consultation rooms.",
+  "requestFramePermissions": ["camera", "microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
+

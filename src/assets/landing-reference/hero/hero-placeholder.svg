@@ -1,0 +1,85 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" width="100%" height="100%" fill="none">
+  <defs>
+    <!-- Warm atmospheric base gradients -->
+    <linearGradient id="skyAtmosphere" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#F2EAE0" />
+      <stop offset="45%" stop-color="#E8DCB" />
+      <stop offset="75%" stop-color="#DFCEBA" />
+      <stop offset="100%" stop-color="#D5C1A6" />
+    </linearGradient>
+
+    <!-- Warm sunlight beam -->
+    <linearGradient id="warmSunBeam" x1="20%" y1="0%" x2="70%" y2="100%">
+      <stop offset="0%" stop-color="#FFFDF7" stop-opacity="0.6" />
+      <stop offset="50%" stop-color="#F4E8D5" stop-opacity="0.25" />
+      <stop offset="100%" stop-color="#E6D2BA" stop-opacity="0" />
+    </linearGradient>
+
+    <!-- Terracotta floor wash -->
+    <linearGradient id="warmFloor" x1="50%" y1="0%" x2="50%" y2="100%">
+      <stop offset="0%" stop-color="#DFCEBA" />
+      <stop offset="100%" stop-color="#CFBC9E" />
+    </linearGradient>
+
+    <!-- Depth vignette overlay for readable text -->
+    <radialGradient id="editorialCenterVignette" cx="50%" cy="50%" r="55%">
+      <stop offset="0%" stop-color="#EDE3D5" stop-opacity="0.15" />
+      <stop offset="60%" stop-color="#EDE3D5" stop-opacity="0.45" />
+      <stop offset="100%" stop-color="#E4D3BF" stop-opacity="0.85" />
+    </radialGradient>
+  </defs>
+
+  <!-- Background Base Canvas -->
+  <rect width="1600" height="900" fill="url(#skyAtmosphere)" />
+
+  <!-- Subtle Architectural Perspective Contours (Consultation Studio) -->
+  <g opacity="0.35" stroke="#B8A48D" stroke-width="1.2">
+    <!-- Ceiling arch curve -->
+    <path d="M-100 120 C 400 30, 1200 30, 1700 120" fill="none" />
+    <path d="M-100 180 C 400 90, 1200 90, 1700 180" fill="none" />
+
+    <!-- Architectural room perspective lines converging to horizon -->
+    <line x1="0" y1="900" x2="680" y2="440" />
+    <line x1="1600" y1="900" x2="920" y2="440" />
+    <line x1="0" y1="120" x2="680" y2="440" stroke-dasharray="4 6" opacity="0.5" />
+    <line x1="1600" y1="120" x2="920" y2="440" stroke-dasharray="4 6" opacity="0.5" />
+
+    <!-- Distant window bay / colonnade -->
+    <rect x="680" y="320" width="240" height="150" rx="8" fill="#F8F2E9" opacity="0.5" stroke="#C4B097" />
+    <line x1="800" y1="320" x2="800" y2="470" stroke="#C4B097" />
+    <line x1="680" y1="395" x2="920" y2="395" stroke="#C4B097" />
+  </g>
+
+  <!-- Studio Floor with Warm Terracotta Tones -->
+  <polygon points="0,620 1600,620 1600,900 0,900" fill="url(#warmFloor)" opacity="0.8" />
+  <line x1="0" y1="620" x2="1600" y2="620" stroke="#C8B399" stroke-width="1.5" />
+
+  <!-- Soft Sunlight wash angling across the interior -->
+  <polygon points="280,0 720,0 1350,900 650,900" fill="url(#warmSunBeam)" />
+
+  <!-- Subtle Consultation & Conversation Elements (Architectural Table & Chairs Silhouette) -->
+  <g opacity="0.32">
+    <!-- Center dialogue round table -->
+    <ellipse cx="800" cy="650" rx="140" ry="32" fill="#E8DBCA" stroke="#BCA78D" stroke-width="1.5" />
+    <!-- Table pedestal -->
+    <path d="M785 660 L785 740 L760 760 L840 760 L815 740 L815 660 Z" fill="#D8C5AE" />
+
+    <!-- Practitioner Chair Left -->
+    <path d="M630 610 C 630 570, 670 570, 670 610 L675 665 C 675 675, 625 675, 625 665 Z" fill="#D3BEA5" stroke="#B8A085" stroke-width="1" />
+    <!-- Client Chair Right -->
+    <path d="M930 610 C 930 570, 970 570, 970 610 L975 665 C 975 675, 925 675, 925 665 Z" fill="#D3BEA5" stroke="#B8A085" stroke-width="1" />
+  </g>
+
+  <!-- Warm Editorial Depth Vignette for High-Contrast Readable Headlines -->
+  <rect width="1600" height="900" fill="url(#editorialCenterVignette)" />
+
+  <!-- Subtle Decorative Horizon Meridian Indicator (Technical / Time Signals) -->
+  <g opacity="0.4" transform="translate(800, 440)">
+    <circle r="38" fill="none" stroke="#C96A3E" stroke-width="1" stroke-dasharray="2 4" />
+    <circle r="2" fill="#C96A3E" />
+    <line x1="-50" y1="0" x2="-40" y2="0" stroke="#77806D" stroke-width="1" />
+    <line x1="40" y1="0" x2="50" y2="0" stroke="#77806D" stroke-width="1" />
+    <line x1="0" y1="-50" x2="0" y2="-40" stroke="#77806D" stroke-width="1" />
+    <line x1="0" y1="40" x2="0" y2="50" stroke="#77806D" stroke-width="1" />
+  </g>
+</svg>
