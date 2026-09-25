@@ -287,9 +287,6 @@ export const DeploymentIntakeFlow: React.FC = () => {
       {step === "intake" && (
         <div className="bg-[#FFF9F2] border border-[#E8DCCB] rounded-[24px] p-6 sm:p-8 md:p-10 shadow-warm-lg">
           <div className="max-w-[720px] mb-8">
-            <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#C96F42]/10 border border-[#C96F42]/20 text-[#C96F42] text-[12px] font-semibold tracking-[0.02em] mb-3">
-              ⚙️ Step 4 — Add Evidence
-            </span>
             <h1 className="text-[28px] sm:text-[36px] font-semibold text-[#342A24] tracking-[-0.03em] leading-[1.15]">
               Tell us about your deployment problem
             </h1>
