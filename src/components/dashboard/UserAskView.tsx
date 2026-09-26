@@ -31,6 +31,7 @@ export const UserAskView: React.FC = () => {
     if (!textToAsk.trim()) return;
     setLoading(true);
     setError(null);
+    setAnalysis(null);
 
     try {
       const res = await fetch("/api/gemini/ask", {
@@ -39,27 +40,22 @@ export const UserAskView: React.FC = () => {
         body: JSON.stringify({ query: textToAsk })
       });
 
-      if (!res.ok) {
-        throw new Error("Failed to analyze question with Gemini API");
+      const data = await res.json();
+
+      if (res.status === 422 || data.isGibberish) {
+        setError(data.error || "Unrecognized or gibberish input. Please describe a specific technical, DevOps, architectural, or code issue.");
+        setAnalysis(null);
+        return;
       }
 
-      const data: AskAnalysisResponse = await res.json();
+      if (!res.ok) {
+        throw new Error(data?.error?.message || "Failed to analyze question with Gemini API");
+      }
+
       setAnalysis(data);
     } catch (err: any) {
       console.error("Error analyzing query:", err);
-      // Fallback local triage
-      setAnalysis({
-        domain: "Software Development",
-        subdomain: "Frontend State Management",
-        skills: ["React", "State Synchronization", "Debugging"],
-        recommendedDuration: 10,
-        durationReasoning: "A 10-minute session provides ample time to inspect your component render cycle and state setters.",
-        clarifyingQuestions: [
-          "Is the state synchronization failing across sibling components or server actions?",
-          "Are you using standard React useState/useReducer or an external store?"
-        ],
-        problemSummary: textToAsk
-      });
+      setError("Unable to process query at this time. Please try again or rephrase your question.");
     } finally {
       setLoading(false);
     }
@@ -109,6 +105,16 @@ export const UserAskView: React.FC = () => {
           }}
           className="space-y-3"
         >
+          {error && (
+            <div className="p-4 rounded-2xl bg-[#B85D3D]/10 border border-[#B85D3D]/30 text-[#B85D3D] text-xs font-semibold flex items-start gap-2.5 animate-in fade-in duration-150">
+              <AlertCircle size={16} className="shrink-0 mt-0.5" />
+              <div>
+                <p className="font-bold">Unrecognized or Invalid Input</p>
+                <p className="mt-0.5 text-[11px] leading-relaxed opacity-90">{error}</p>
+              </div>
+            </div>
+          )}
+
           <textarea
             rows={3}
             value={query}

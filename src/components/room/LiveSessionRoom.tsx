@@ -134,6 +134,20 @@ COMMIT;`
   // End Session / Rating Modal States
   const [isEndModalOpen, setIsEndModalOpen] = useState(false);
   const [isRatingModalOpen, setIsRatingModalOpen] = useState(false);
+  const [isExtendModalOpen, setIsExtendModalOpen] = useState(false);
+
+  const baseFee = booking?.price || 99;
+  const extensionPriceIncrease = baseFee + 50;
+
+  const handleExtensionRequest = () => {
+    setIsExtendModalOpen(true);
+  };
+
+  const confirmExtension = () => {
+    setSecondsRemaining(prev => prev + 300);
+    setIsExtendModalOpen(false);
+    showNotification(`Session extended by +5 minutes. Price is increased by ₹${extensionPriceIncrease}`, "success");
+  };
 
   // Local media stream reference
   const localVideoRef = useRef<HTMLVideoElement>(null);
@@ -166,6 +180,13 @@ COMMIT;`
       }
     };
   }, []);
+
+  // Fix Video Call Session Bug: Re-bind video element srcObject when video is toggled back on
+  useEffect(() => {
+    if (isVideoOn && localVideoRef.current && streamRef.current) {
+      localVideoRef.current.srcObject = streamRef.current;
+    }
+  }, [isVideoOn]);
 
   // Dynamic body background sync while in room
   useEffect(() => {
@@ -355,7 +376,7 @@ COMMIT;`
 
           {/* +5 Mins Extension */}
           <button
-            onClick={handleExtension}
+            onClick={handleExtensionRequest}
             className="hidden sm:inline-flex items-center gap-1 px-2.5 py-1.5 rounded-[8px] bg-[#FFF9F2]/10 hover:bg-[#FFF9F2]/20 border border-[#E8DCCB]/20 text-xs font-semibold text-[#FFF9F2] transition-colors"
           >
             <Plus size={13} className="text-[#C96F42]" />
@@ -816,6 +837,42 @@ COMMIT;`
                 className="py-2.5 rounded-[10px] bg-[#B85D3D] hover:bg-[#A34F32] text-[#FFF9F2] text-xs font-bold shadow-warm-xs transition-colors"
               >
                 End & Review
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Timer Extension Fee Popup Modal */}
+      {isExtendModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#1E1714]/80 backdrop-blur-sm animate-in fade-in duration-150">
+          <div className="w-full max-w-sm rounded-[24px] bg-[#FFF9F2] text-[#342A24] p-6 space-y-4 text-center border border-[#E8DCCB] shadow-warm-lg animate-in zoom-in-95">
+            <div className="w-12 h-12 rounded-[14px] bg-[#C96F42]/10 text-[#C96F42] flex items-center justify-center mx-auto">
+              <Clock size={24} />
+            </div>
+            <h3 className="font-serif font-bold text-xl text-[#342A24]">Extend Consultation Time?</h3>
+            <p className="text-xs text-[#7B6C60] leading-relaxed">
+              Extending your consultation session by <strong className="text-[#342A24]">+5 minutes</strong> will update your session balance.
+            </p>
+            <div className="p-3.5 rounded-2xl bg-[#F6F0E7] border border-[#E8DCCB] text-center space-y-0.5">
+              <p className="text-[11px] font-semibold text-[#7B6C60]">Additional Fee Notice</p>
+              <p className="text-sm font-bold text-[#C96F42]">
+                Price is increased by ₹{extensionPriceIncrease}
+              </p>
+              <p className="text-[10px] text-[#7B6C60]">({baseFee} base fee + ₹50 extension surcharge)</p>
+            </div>
+            <div className="grid grid-cols-2 gap-2.5 pt-1">
+              <button
+                onClick={() => setIsExtendModalOpen(false)}
+                className="py-2.5 rounded-[12px] border border-[#E8DCCB] bg-[#FFF9F2] text-xs font-bold text-[#342A24] hover:bg-[#F6F0E7]"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmExtension}
+                className="py-2.5 rounded-[12px] bg-[#C96F42] hover:bg-[#B85D3D] text-[#FFF9F2] text-xs font-bold shadow-warm-xs"
+              >
+                Confirm +5m
               </button>
             </div>
           </div>

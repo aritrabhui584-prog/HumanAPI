@@ -1,4 +1,8 @@
 import { prisma } from "../db/prisma";
+import { GoogleGenAI } from "@google/genai";
+
+const apiKey = process.env.GEMINI_API_KEY || "";
+const ai = apiKey ? new GoogleGenAI({ apiKey }) : null;
 
 export interface DiagnosisResult {
   caseId: string;
@@ -13,6 +17,31 @@ export interface DiagnosisResult {
   priority: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
   confidenceWeight: number;
 }
+
+export interface AskAnalysisResult {
+  isGibberish?: boolean;
+  error?: string;
+  domain: string;
+  subdomain: string;
+  skills: string[];
+  recommendedDuration: 5 | 10 | 15;
+  durationReasoning: string;
+  clarifyingQuestions: string[];
+  problemSummary: string;
+}
+
+export interface DissatisfactionReportResult {
+  reportId: string;
+  previousExpertId: string;
+  newExpertId: string;
+  newExpertName: string;
+  dissatisfactionSummary: string;
+  unresolvedTopics: string[];
+  remediationBrief: string;
+  suggestedFocusArea: string;
+  createdAt: string;
+}
+
 
 export async function runDiagnosisEngine(caseId: string): Promise<DiagnosisResult> {
   const deploymentCase = await prisma.deploymentCase.findUnique({
@@ -228,3 +257,217 @@ export async function matchExpertsForCase(caseId: string): Promise<ExpertMatchRe
 
   return topMatches;
 }
+
+/**
+ * Gemini LLM Problem Triage & Gibberish Detection
+ */
+export async function analyzeAskQueryWithGemini(query: string): Promise<AskAnalysisResult> {
+  const trimmed = query.trim();
+
+  // Basic client-side/regex gibberish check
+  const isRandomKeyboardMash = /^[b-df-hj-np-tv-z]{6,}$/i.test(trimmed) ||
+    /^(.)\1{4,}$/i.test(trimmed) ||
+    (trimmed.length < 5 && !/^[a-z0-9\s]+$/i.test(trimmed)) ||
+    /^[asdfghjklqwertyuiopzxcvbnm]{10,}$/i.test(trimmed);
+
+  if (isRandomKeyboardMash) {
+    return {
+      isGibberish: true,
+      error: "The provided prompt appears to be invalid or nonsensical keyboard output. Please enter a meaningful DevOps, architecture, or code problem description.",
+      domain: "Invalid Input",
+      subdomain: "Unrecognized Query",
+      skills: [],
+      recommendedDuration: 10,
+      durationReasoning: "Unable to evaluate duration due to invalid query.",
+      clarifyingQuestions: [],
+      problemSummary: trimmed
+    };
+  }
+
+  // Attempt Gemini API invocation if available
+  if (ai) {
+    try {
+      const prompt = `You are the lead DevOps & System Architecture triage engine for HumanAPI.
+Analyze the following user problem query:
+"${trimmed}"
+
+Determine if it is a valid technical/code issue or gibberish.
+Return ONLY valid JSON matching this schema:
+{
+  "isGibberish": false,
+  "domain": "e.g. Frontend Architecture / DevOps & Kubernetes / Database Optimization / Backend Microservices",
+  "subdomain": "e.g. React State Sync / K8s Ingress Controller / Postgres Locking",
+  "skills": ["Skill1", "Skill2", "Skill3"],
+  "recommendedDuration": 5 | 10 | 15,
+  "durationReasoning": "Concise reasoning for session duration",
+  "clarifyingQuestions": ["Question 1", "Question 2"],
+  "problemSummary": "Clean 1-sentence technical summary"
+}`;
+
+      const response = await ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: prompt
+      });
+
+      const responseText = response.text || "";
+      const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        const parsed = JSON.parse(jsonMatch[0]);
+        if (parsed.isGibberish) {
+          return {
+            isGibberish: true,
+            error: "The provided prompt does not contain a recognizable technical or software engineering issue.",
+            domain: "Unclear Query",
+            subdomain: "Invalid Request",
+            skills: [],
+            recommendedDuration: 10,
+            durationReasoning: "Invalid input",
+            clarifyingQuestions: [],
+            problemSummary: trimmed
+          };
+        }
+        return {
+          domain: parsed.domain || "DevOps & Cloud",
+          subdomain: parsed.subdomain || "System Deployment",
+          skills: Array.isArray(parsed.skills) ? parsed.skills : ["DevOps", "Infrastructure"],
+          recommendedDuration: [5, 10, 15].includes(parsed.recommendedDuration) ? parsed.recommendedDuration : 10,
+          durationReasoning: parsed.durationReasoning || "A 10-minute targeted consultation is recommended.",
+          clarifyingQuestions: Array.isArray(parsed.clarifyingQuestions) ? parsed.clarifyingQuestions : ["Could you provide additional logs?"],
+          problemSummary: parsed.problemSummary || trimmed
+        };
+      }
+    } catch (err) {
+      console.warn("Gemini API call failed, falling back to rule-based triage:", err);
+    }
+  }
+
+  // Smart fallback triage rules
+  const lower = trimmed.toLowerCase();
+  let domain = "Software Development";
+  let subdomain = "Fullstack Architecture";
+  let skills = ["TypeScript", "System Architecture", "Debugging"];
+  let duration: 5 | 10 | 15 = 10;
+  let durationReasoning = "10 minutes is optimal for inspecting logs and isolating root cause.";
+
+  if (lower.includes("k8s") || lower.includes("kubernetes") || lower.includes("docker") || lower.includes("pod") || lower.includes("ci/cd") || lower.includes("deploy")) {
+    domain = "DevOps & Cloud Infrastructure";
+    subdomain = "Container Orchestration & CI/CD";
+    skills = ["Docker", "Kubernetes", "CI/CD Pipelines", "Terraform"];
+    duration = 15;
+    durationReasoning = "Deployment container failures usually require manifest inspection (+15m).";
+  } else if (lower.includes("postgres") || lower.includes("sql") || lower.includes("db") || lower.includes("query") || lower.includes("mongo")) {
+    domain = "Database Engineering";
+    subdomain = "Query Optimization & Indexing";
+    skills = ["PostgreSQL", "Database Indexing", "SQL Tuning", "Performance"];
+    duration = 10;
+    durationReasoning = "10 minutes is sufficient to analyze execution plans and index recommendations.";
+  } else if (lower.includes("react") || lower.includes("state") || lower.includes("hook") || lower.includes("css") || lower.includes("next")) {
+    domain = "Frontend Architecture";
+    subdomain = "React State & Component Lifecycle";
+    skills = ["React 19", "TypeScript", "State Management", "Performance"];
+    duration = 5;
+    durationReasoning = "Targeted 5-minute teardown is ideal for component state synchronization bugs.";
+  }
+
+  return {
+    domain,
+    subdomain,
+    skills,
+    recommendedDuration: duration,
+    durationReasoning,
+    clarifyingQuestions: [
+      `What error codes or stack traces are appearing when this occurs?`,
+      `Is this reproducible locally or exclusively in production environment?`
+    ],
+    problemSummary: trimmed
+  };
+}
+
+/**
+ * Past Session Feedback & Dissatisfaction Re-matching System
+ */
+export async function generateDissatisfactionReportAndRematch(params: {
+  sessionId: string;
+  previousExpertId: string;
+  comment: string;
+  rating: number;
+  problemResolved: boolean;
+}): Promise<DissatisfactionReportResult> {
+  const { sessionId, previousExpertId, comment, rating, problemResolved } = params;
+
+  // Load previous expert profile
+  const prevExpert = await prisma.expertProfile.findUnique({
+    where: { id: previousExpertId },
+    include: { user: true }
+  }).catch(() => null);
+
+  const prevExpertName = prevExpert ? `${prevExpert.user.firstName} ${prevExpert.user.lastName}` : "Previous Expert";
+
+  // Find a new top expert excluding the previous one
+  const candidateExperts = await prisma.expertProfile.findMany({
+    where: {
+      id: { not: previousExpertId },
+      verificationStatus: "APPROVED"
+    },
+    include: { user: true },
+    orderBy: { rating: "desc" }
+  });
+
+  const newExpert = candidateExperts[0] || {
+    id: "exp-2",
+    user: { firstName: "Dr. Camille", lastName: "Laurent" }
+  };
+
+  const newExpertName = `${newExpert.user.firstName} ${newExpert.user.lastName}`;
+
+  let dissatisfactionSummary = `User reported dissatisfaction (Rating: ${rating}/5, Resolved: ${problemResolved}).`;
+  let remediationBrief = `Prior session with ${prevExpertName} failed to resolve root issue. Feedback noted: "${comment}". New expert should focus on step-by-step verification.`;
+
+  if (ai) {
+    try {
+      const prompt = `Generate a structured handover report for a new DevOps consultant taking over an unresolved session.
+Previous Expert: ${prevExpertName}
+Client Rating: ${rating}/5
+Client Comment: "${comment}"
+
+Return JSON:
+{
+  "dissatisfactionSummary": "Concise summary of client's frustration",
+  "unresolvedTopics": ["Topic 1", "Topic 2"],
+  "remediationBrief": "Handover instructions for new expert ${newExpertName}",
+  "suggestedFocusArea": "Primary area to debug first"
+}`;
+
+      const res = await ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: prompt
+      });
+
+      const text = res.text || "";
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        const parsed = JSON.parse(jsonMatch[0]);
+        dissatisfactionSummary = parsed.dissatisfactionSummary || dissatisfactionSummary;
+        remediationBrief = parsed.remediationBrief || remediationBrief;
+      }
+    } catch (err) {
+      console.warn("Failed to generate LLM dissatisfaction report, using structured fallback:", err);
+    }
+  }
+
+  return {
+    reportId: `dissat_rpt_${Date.now()}`,
+    previousExpertId,
+    newExpertId: newExpert.id,
+    newExpertName,
+    dissatisfactionSummary,
+    unresolvedTopics: [
+      "Root cause isolation in prior session",
+      "Live environment verification"
+    ],
+    remediationBrief,
+    suggestedFocusArea: "Direct live log inspection & component isolation",
+    createdAt: new Date().toISOString()
+  };
+}
+

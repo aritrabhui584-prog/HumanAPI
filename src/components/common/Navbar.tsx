@@ -69,11 +69,11 @@ export const Navbar: React.FC = () => {
   ];
 
   const authenticatedExpertNavLinks = [
-    { label: "Expert Overview", view: "expert-dashboard" },
-    { label: "Client Requests", view: "expert-dashboard" },
-    { label: "Earnings & Payouts", view: "expert-dashboard" },
-    { label: "Availability", view: "expert-dashboard" },
-    { label: "Settings", view: "expert-dashboard" },
+    { label: "Expert Overview", view: "expert-dashboard", tab: "overview" },
+    { label: "Client Requests", view: "expert-dashboard", tab: "sessions" },
+    { label: "Earnings & Payouts", view: "expert-dashboard", tab: "earnings" },
+    { label: "Availability", view: "expert-dashboard", tab: "calendar" },
+    { label: "Settings", view: "expert-dashboard", tab: "settings" },
   ];
 
   const isPublicVisitor = !currentUser;
@@ -84,8 +84,8 @@ export const Navbar: React.FC = () => {
     ? authenticatedExpertNavLinks
     : authenticatedClientNavLinks;
 
-  const handleNav = (view: string) => {
-    navigate(view);
+  const handleNav = (view: string, tab?: string) => {
+    navigate(view, tab ? { tab } : {});
     setIsMobileMenuOpen(false);
     setIsUserMenuOpen(false);
   };
@@ -113,7 +113,7 @@ export const Navbar: React.FC = () => {
             return (
               <button
                 key={link.label}
-                onClick={() => handleNav(link.view)}
+                onClick={() => handleNav(link.view, (link as any).tab)}
                 className={`px-3 py-2 rounded-lg text-[14px] font-sans font-medium transition-colors ${
                   isActive
                     ? "text-[#C96F42] bg-[#C96F42]/8 font-semibold"

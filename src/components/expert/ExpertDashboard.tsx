@@ -34,6 +34,7 @@ export const ExpertDashboard: React.FC = () => {
     currentRole,
     switchRole,
     navigate,
+    viewParams,
     experts,
     bookings,
     updateExpertPricing,
@@ -86,7 +87,13 @@ export const ExpertDashboard: React.FC = () => {
   // Active sub-tab inside expert dashboard
   const [activeTab, setActiveTab] = useState<
     "overview" | "sessions" | "calendar" | "earnings" | "reviews" | "pricing" | "profile" | "settings"
-  >("overview");
+  >(viewParams?.tab || "overview");
+
+  React.useEffect(() => {
+    if (viewParams?.tab) {
+      setActiveTab(viewParams.tab);
+    }
+  }, [viewParams?.tab]);
   const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState(false);
 
   // Active Client Problems state
