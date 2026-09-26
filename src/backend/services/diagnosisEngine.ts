@@ -258,27 +258,25 @@ export async function matchExpertsForCase(caseId: string): Promise<ExpertMatchRe
   return topMatches;
 }
 
+import { validateDeploymentQuery, DEPLOYMENT_VALIDATION_ERROR_MESSAGE } from "../../lib/validation/deploymentQueryValidator";
+
 /**
- * Gemini LLM Problem Triage & Gibberish Detection
+ * Gemini LLM Problem Triage & Gibberish / Relevance Detection
  */
 export async function analyzeAskQueryWithGemini(query: string): Promise<AskAnalysisResult> {
-  const trimmed = query.trim();
+  const trimmed = query ? query.trim() : "";
 
-  // Basic client-side/regex gibberish check
-  const isRandomKeyboardMash = /^[b-df-hj-np-tv-z]{6,}$/i.test(trimmed) ||
-    /^(.)\1{4,}$/i.test(trimmed) ||
-    (trimmed.length < 5 && !/^[a-z0-9\s]+$/i.test(trimmed)) ||
-    /^[asdfghjklqwertyuiopzxcvbnm]{10,}$/i.test(trimmed);
-
-  if (isRandomKeyboardMash) {
+  // Centralized Domain Relevance & Gibberish Check
+  const validation = validateDeploymentQuery(trimmed);
+  if (!validation.isValid) {
     return {
       isGibberish: true,
-      error: "The provided prompt appears to be invalid or nonsensical keyboard output. Please enter a meaningful DevOps, architecture, or code problem description.",
-      domain: "Invalid Input",
-      subdomain: "Unrecognized Query",
+      error: validation.errorMessage || DEPLOYMENT_VALIDATION_ERROR_MESSAGE,
+      domain: "Out of Scope",
+      subdomain: "Unrelated Query",
       skills: [],
       recommendedDuration: 10,
-      durationReasoning: "Unable to evaluate duration due to invalid query.",
+      durationReasoning: "Unable to evaluate duration for out-of-scope query.",
       clarifyingQuestions: [],
       problemSummary: trimmed
     };

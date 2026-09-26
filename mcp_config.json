@@ -1,8 +1,7 @@
 {
   "mcpServers": {
     "devfolio": {
-      "url": "https://mcp.devfolio.co/mcp",
-      "serverUrl": "https://mcp.devfolio.co/mcp"
+      "url": "https://mcp.devfolio.co/mcp"
     }
   }
 }

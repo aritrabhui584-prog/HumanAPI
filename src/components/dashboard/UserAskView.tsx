@@ -13,6 +13,8 @@ import {
 } from "lucide-react";
 import { AskAnalysisResponse } from "../../types";
 
+import { validateDeploymentQuery, DEPLOYMENT_VALIDATION_ERROR_MESSAGE } from "../../lib/validation/deploymentQueryValidator";
+
 export const UserAskView: React.FC = () => {
   const { viewParams, experts, openBookingModal } = useApp();
   const [query, setQuery] = useState(viewParams?.initialQuery || "");
@@ -29,6 +31,15 @@ export const UserAskView: React.FC = () => {
 
   const handleAsk = async (textToAsk: string) => {
     if (!textToAsk.trim()) return;
+
+    // Frontend Instant Domain Relevance Validation
+    const validation = validateDeploymentQuery(textToAsk);
+    if (!validation.isValid) {
+      setError(validation.errorMessage || DEPLOYMENT_VALIDATION_ERROR_MESSAGE);
+      setAnalysis(null);
+      return;
+    }
+
     setLoading(true);
     setError(null);
     setAnalysis(null);

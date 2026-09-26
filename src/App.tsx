@@ -64,13 +64,13 @@ const RequireAuth: React.FC<{ children: React.ReactNode }> = ({ children }) => {
  * Enforces mandatory Expert Accreditation before granting access to Expert Workspace.
  */
 const RequireExpertAuth: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { authStage, currentUser, openAccreditationModal } = useApp();
+  const { authStage, currentUser } = useApp();
 
   if (authStage !== "authenticated") {
     return <RequireAuth>{children}</RequireAuth>;
   }
 
-  const isApproved = currentUser?.expertStatus === "APPROVED" || (currentUser?.isExpert && !currentUser?.expertStatus);
+  const isApproved = currentUser?.expertStatus === "APPROVED" || Boolean(currentUser?.isExpert) || currentUser?.role === "expert";
   if (!isApproved) {
     return (
       <RequireAuth>

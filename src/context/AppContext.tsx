@@ -513,8 +513,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const switchRole = (role: UserRole) => {
     if (role === "expert") {
-      const status = currentUser?.expertStatus || (currentUser?.isExpert ? "APPROVED" : "NOT_EXPERT");
-      if (status !== "APPROVED") {
+      const isApproved = currentUser?.expertStatus === "APPROVED" || Boolean(currentUser?.isExpert) || currentUser?.role === "expert";
+      if (!isApproved) {
         setIsAccreditationModalOpen(true);
         showNotification("Expert Workspace access requires completed HumanAPI accreditation.", "info");
         return;
@@ -840,6 +840,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           ? {
               ...prev,
               isExpert: true,
+              expertStatus: "APPROVED",
+              role: "expert",
               expertId: "exp-approved",
               expertProfileId: "exp-approved"
             }

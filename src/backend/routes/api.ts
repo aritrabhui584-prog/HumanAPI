@@ -4,6 +4,7 @@ import crypto from "crypto";
 import { prisma } from "../db/prisma";
 import { runDiagnosisEngine, matchExpertsForCase, analyzeAskQueryWithGemini, generateDissatisfactionReportAndRematch } from "../services/diagnosisEngine";
 import { sendOtpEmail } from "../services/emailService";
+import { validateDeploymentQuery, DEPLOYMENT_VALIDATION_ERROR_MESSAGE } from "../../lib/validation/deploymentQueryValidator";
 
 export const apiRouter = Router();
 
@@ -539,6 +540,12 @@ apiRouter.post("/deployment-cases", authenticateToken, async (req: Authenticated
 
     if (!client) {
       sendError(res, 401, "UNAUTHORIZED", "Authentication required to submit deployment cases.");
+      return;
+    }
+
+    const validation = validateDeploymentQuery(data.problemDescription);
+    if (!validation.isValid) {
+      sendError(res, 400, "INVALID_QUERY_DOMAIN", validation.errorMessage || DEPLOYMENT_VALIDATION_ERROR_MESSAGE);
       return;
     }
 
