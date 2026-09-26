@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { useApp } from "../../context/AppContext";
+import { getUserFirstName, getUserDisplayName } from "../../lib/userUtils";
 import { VerificationBadge } from "../common/Badge";
 import {
   User,
@@ -41,9 +42,9 @@ export const ExpertSettingsView: React.FC<ExpertSettingsViewProps> = ({ onNaviga
   >("account");
 
   // Form states
-  const [firstName, setFirstName] = useState(currentUser?.name?.split(" ")[0] || "Aritra");
-  const [lastName, setLastName] = useState(currentUser?.name?.split(" ").slice(1).join(" ") || "Bhui");
-  const [email] = useState(currentUser?.email || "aritra@humanapi.io");
+  const [firstName, setFirstName] = useState(getUserFirstName(currentUser));
+  const [lastName, setLastName] = useState(currentUser?.name?.split(" ").slice(1).join(" ") || "");
+  const [email] = useState(currentUser?.email || "expert@humanapi.io");
   const [phone, setPhone] = useState("+91 98765 43210");
   const [headline, setHeadline] = useState(myExpert.headline || "Staff Engineer & Distributed Systems Consultant");
   const [bio, setBio] = useState(myExpert.bio || "Passionate about high-throughput messaging, clean architectural abstractions, and high-impact consultations.");

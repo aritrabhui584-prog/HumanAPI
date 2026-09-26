@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { useApp } from "../../context/AppContext";
+import { getUserDisplayName } from "../../lib/userUtils";
 import { HumanAPILogo } from "../brand/HumanAPILogo";
 import { MobileNavigationDrawer } from "../common/MobileNavigationDrawer";
 import {
@@ -71,6 +72,8 @@ export const UserDashboardLayout: React.FC<{
     );
   }
 
+  const userDisplayName = getUserDisplayName(currentUser);
+
   return (
     <div className="client-app-container flex-1 min-h-0 bg-[#F6F0E7] flex flex-col md:flex-row text-[#342A24] md:overflow-hidden relative">
       {/* MOBILE TOP NAVIGATION BAR (Visible strictly on < 768px) */}
@@ -98,7 +101,7 @@ export const UserDashboardLayout: React.FC<{
           </span>
           <img
             src={currentUser.avatar}
-            alt={currentUser.name}
+            alt={userDisplayName}
             className="w-7 h-7 rounded-[8px] object-cover border border-[#E8DCCB]"
           />
         </div>
@@ -118,12 +121,12 @@ export const UserDashboardLayout: React.FC<{
           <div className="flex items-center gap-3 mb-3">
             <img
               src={currentUser.avatar}
-              alt={currentUser.name}
+              alt={userDisplayName}
               className="w-11 h-11 rounded-[12px] object-cover border border-[#E8DCCB]"
             />
             <div className="min-w-0 flex-1">
               <h3 className="font-serif font-bold text-sm text-[#342A24] truncate">
-                {currentUser.name}
+                {userDisplayName}
               </h3>
               <span className="inline-flex items-center gap-1 text-[10px] font-bold text-[#C96F42] bg-[#C96F42]/10 px-2 py-0.5 rounded-full border border-[#C96F42]/20">
                 Client Workspace

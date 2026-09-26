@@ -37,7 +37,7 @@ export const EmailOtpVerification: React.FC<EmailOtpVerificationProps> = ({
   }, []);
 
   const maskedEmail = React.useMemo(() => {
-    const targetEmail = pendingAuth?.email || "aritra@humanapi.io";
+    const targetEmail = pendingAuth?.email || "demo.user@humanapi.test";
     const parts = targetEmail.split("@");
     if (parts.length !== 2) return targetEmail;
     const [name, domain] = parts;

@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { useApp } from "../../context/AppContext";
+import { getUserDisplayName } from "../../lib/userUtils";
 import {
   User,
   Mail,
@@ -26,8 +27,8 @@ export const UserSettingsView: React.FC = () => {
   >("profile");
 
   // Profile Form State
-  const [name, setName] = useState(currentUser?.name || "Aritra Bhui");
-  const [email, setEmail] = useState(currentUser?.email || "aritra@developer.io");
+  const [name, setName] = useState(getUserDisplayName(currentUser));
+  const [email, setEmail] = useState(currentUser?.email || "");
   const [title, setTitle] = useState("Lead Platform Architect");
   const [timezone, setTimezone] = useState("Asia/Kolkata (GMT+5:30)");
 

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useApp } from "../../context/AppContext";
+import { getUserDisplayName, getUserFirstName } from "../../lib/userUtils";
 import {
   Menu,
   X,
@@ -188,11 +189,11 @@ export const Navbar: React.FC = () => {
                 >
                   <img
                     src={currentUser.avatar}
-                    alt={currentUser.name}
+                    alt={getUserDisplayName(currentUser)}
                     className="w-8 h-8 rounded-[8px] object-cover border border-[#E8DCCB]"
                   />
                   <span className="text-xs font-semibold text-[#342A24] max-w-[90px] truncate">
-                    {currentUser.name.split(" ")[0]}
+                    {getUserFirstName(currentUser)}
                   </span>
                 </button>
 
@@ -203,7 +204,7 @@ export const Navbar: React.FC = () => {
                   >
                     <div className="px-4 py-2 border-b border-[#E8DCCB]/60">
                       <p className="text-[11px] text-[#7B6C60]">Signed in as</p>
-                      <p className="text-xs font-bold text-[#342A24] truncate">{currentUser.name}</p>
+                      <p className="text-xs font-bold text-[#342A24] truncate">{getUserDisplayName(currentUser)}</p>
                       <p className="text-[10px] text-[#7B6C60] truncate">{currentUser.email}</p>
                     </div>
 
@@ -330,11 +331,11 @@ export const Navbar: React.FC = () => {
                 <div className="flex items-center gap-2 p-2 rounded-[10px] bg-[#F6F0E7]">
                   <img
                     src={currentUser.avatar}
-                    alt={currentUser.name}
+                    alt={getUserDisplayName(currentUser)}
                     className="w-8 h-8 rounded-[8px] object-cover"
                   />
                   <div className="truncate">
-                    <p className="text-xs font-bold text-[#342A24] truncate">{currentUser.name}</p>
+                    <p className="text-xs font-bold text-[#342A24] truncate">{getUserDisplayName(currentUser)}</p>
                     <p className="text-[10px] text-[#7B6C60] truncate">{currentUser.email}</p>
                   </div>
                 </div>

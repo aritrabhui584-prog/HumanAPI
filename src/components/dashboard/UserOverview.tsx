@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useApp } from "../../context/AppContext";
 import { RatingStars, VerificationBadge } from "../common/Badge";
+import { getUserFirstName } from "../../lib/userUtils";
 import {
   Sparkles,
   Calendar,
@@ -55,7 +56,7 @@ export const UserOverview: React.FC = () => {
               Deployment Diagnosis Workspace
             </span>
             <h1 className="font-serif font-bold text-xl sm:text-2xl md:text-3xl text-[#342A24] mt-0.5 break-words">
-              Good morning, {currentUser?.name?.split(" ")[0] || "there"}. What are you trying to deploy?
+              Good morning, {getUserFirstName(currentUser)}. What are you trying to deploy?
             </h1>
             <p className="text-xs sm:text-sm text-[#7B6C60] mt-1 leading-relaxed max-w-[680px]">
               HumanAPI parses your repository and build logs to diagnose software deployment problems before connecting you with a DevOps expert.

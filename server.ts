@@ -3,6 +3,7 @@ import path from "path";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI } from "@google/genai";
 import dotenv from "dotenv";
+import { apiRouter } from "./src/backend/routes/api";
 
 dotenv.config();
 
@@ -10,6 +11,7 @@ const app = express();
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 
 app.use(express.json({ limit: "10mb" }));
+app.use("/api", apiRouter);
 
 // Security Headers Middleware
 app.use((req, res, next) => {
@@ -301,8 +303,30 @@ Return STRICT JSON format:
     });
   } catch (err: any) {
     console.error("Error evaluating interview:", err);
-    res.status(500).json({ error: "Failed to evaluate interview", details: err?.message });
   }
+});
+
+// Centralized API 404 Handler (ensures all unmatched /api requests return JSON, not HTML)
+app.use("/api/*", (req, res) => {
+  res.status(404).json({
+    success: false,
+    error: {
+      code: "NOT_FOUND",
+      message: `API endpoint ${req.originalUrl} not found.`
+    }
+  });
+});
+
+// Centralized Express API Error Handler
+app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+  console.error("Centralized Express API Error:", err);
+  res.status(500).json({
+    success: false,
+    error: {
+      code: "INTERNAL_SERVER_ERROR",
+      message: "Something went wrong while processing the request."
+    }
+  });
 });
 
 // Configure Vite / Static serving

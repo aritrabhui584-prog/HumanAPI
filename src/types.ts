@@ -429,3 +429,10 @@ export interface AdminCategoryItem {
   createdAt: string;
 }
 
+export interface ExpertMatch {
+  expert: Expert;
+  matchScore: number;
+  matchReason: string;
+}
+
+

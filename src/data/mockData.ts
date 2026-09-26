@@ -238,7 +238,7 @@ export const INITIAL_BOOKINGS: Booking[] = [
     expertAvatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300&auto=format&fit=crop&q=80",
     expertHeadline: "Principal Cloud Architect & Distributed Systems Engineer",
     userId: "u-curr",
-    userName: "Aritra Bhui",
+    userName: "Demo User",
     duration: 10,
     price: 349,
     platformFee: 42,

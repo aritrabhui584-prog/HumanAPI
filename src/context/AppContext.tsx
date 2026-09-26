@@ -35,6 +35,7 @@ import {
   INITIAL_SYSTEM_HEALTH
 } from "../data/mockData";
 import { PaymentCreateOptions, defaultPaymentGateway } from "../lib/paymentGateway";
+import { loginApi, signupApi, verifyEmailOTPApi, resendOTPApi, logoutApi, getCurrentUserApi } from "../Auth/authApi";
 
 interface AppContextType {
   currentUser: User | null;
@@ -174,16 +175,16 @@ const getInitialPendingAuth = (): PendingAuthSession | null => {
   ];
   if (protectedPaths.includes(path)) {
     return {
-      email: "aritra@humanapi.io",
-      name: "Aritra Bhui",
+      email: "demo.user@humanapi.test",
+      name: "Demo User",
       asExpert: path === "expert-dashboard",
       generatedOtp: "123456",
       otpSentAt: Date.now(),
       expiresAt: Date.now() + 600000,
       demoUserObj: {
         id: "u-curr",
-        name: "Aritra Bhui",
-        email: "aritra@humanapi.io",
+        name: "Demo User",
+        email: "demo.user@humanapi.test",
         avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80",
         role: path === "expert-dashboard" ? "expert" : "user",
         isExpert: path === "expert-dashboard",
@@ -210,11 +211,32 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
-    // Immediate clean boot resolution without artificial delays
-    const timer = setTimeout(() => {
+    async function checkSession() {
+      const storedEmail = typeof window !== "undefined" ? localStorage.getItem("humanapi_auth_email") : null;
+      if (storedEmail) {
+        const userObj = await getCurrentUserApi(storedEmail);
+        if (userObj) {
+          const user: User = {
+            id: userObj.id,
+            name: userObj.name,
+            email: userObj.email,
+            avatar: userObj.avatar,
+            role: userObj.role as any,
+            isExpert: userObj.isExpert,
+            expertStatus: userObj.expertStatus,
+            expertId: userObj.expertId,
+            sessionsCompleted: 14,
+            totalSpent: 4200,
+            createdAt: userObj.createdAt || "2026-01-15T10:00:00.000Z"
+          };
+          setCurrentUser(user);
+          setAuthStage("authenticated");
+          setCurrentRole(user.role === "admin" ? "admin" : user.role === "expert" ? "expert" : "user");
+        }
+      }
       setIsInitializing(false);
-    }, 200);
-    return () => clearTimeout(timer);
+    }
+    checkSession();
   }, []);
 
   const triggerDataRefresh = () => {
@@ -514,99 +536,98 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return () => clearInterval(interval);
   }, [otpCooldownSeconds]);
 
-  const login = (email: string, name = "Aritra Bhui", asExpert = false) => {
-    const userObj: User = {
-      id: "u-curr",
-      name: name || (email && email.includes("@") ? email.split("@")[0] : "Aritra Bhui"),
-      email: email || "aritra@humanapi.io",
-      avatar: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=200&auto=format&fit=crop&q=80",
-      role: asExpert ? "expert" : "user",
-      isExpert: true,
-      expertId: "exp-1",
-      headline: "Product Engineer & Tech Founder",
-      bio: "Building next-generation real-time applications.",
-      interests: ["Software Development", "System Architecture"],
-      sessionsCompleted: 4,
-      totalSpent: 1240,
-      createdAt: "2024-01-10"
-    };
+  const login = async (email: string, name = "Aritra Bhui", asExpert = false) => {
+    const res = await loginApi(email);
+    if (res.success) {
+      const userObj: User = {
+        id: `u_${Date.now()}`,
+        name: name || (email && email.includes("@") ? email.split("@")[0] : "Aritra Bhui"),
+        email: res.email || email,
+        avatar: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=200&auto=format&fit=crop&q=80",
+        role: asExpert ? "expert" : "user",
+        isExpert: asExpert,
+        expertId: asExpert ? "exp-1" : undefined,
+        headline: "Product Engineer & Tech Founder",
+        bio: "Building next-generation real-time applications.",
+        interests: ["Software Development", "System Architecture"],
+        sessionsCompleted: 4,
+        totalSpent: 1240,
+        createdAt: new Date().toISOString()
+      };
 
-    setPendingAuth({
-      email: userObj.email,
-      name: userObj.name,
-      asExpert,
-      generatedOtp: "123456",
-      otpSentAt: Date.now(),
-      expiresAt: Date.now() + 600000,
-      demoUserObj: userObj
-    });
-    setAuthStage("otp_required");
-    setCurrentUser(null);
-    setAuthModalMode("otp");
-    setIsAuthModalOpen(true);
-    setOtpCooldownSeconds(30);
-    showNotification(`Password verified. Single-use code sent to ${userObj.email}`, "info");
+      setPendingAuth({
+        email: userObj.email,
+        name: userObj.name,
+        asExpert,
+        generatedOtp: res.demoOtp || "123456",
+        otpSentAt: Date.now(),
+        expiresAt: Date.now() + 600000,
+        demoUserObj: userObj
+      });
+      setAuthStage("otp_required");
+      setCurrentUser(null);
+      setAuthModalMode("otp");
+      setIsAuthModalOpen(true);
+      setOtpCooldownSeconds(30);
+      showNotification(`Password verified. Security OTP sent to ${userObj.email}`, "info");
+    } else {
+      showNotification(res.error || "Login failed.", "error");
+    }
   };
 
   const verifyEmailOtp = (code: string): boolean => {
-    const valid = code === pendingAuth?.generatedOtp || code === "123456";
-    if (!valid) {
-      showNotification("Invalid OTP code. Please enter 123456.", "error");
-      return false;
-    }
+    const targetEmail = pendingAuth?.email || localStorage.getItem("humanapi_auth_email") || "aritra@humanapi.io";
+    
+    // Asynchronous backend verification trigger
+    verifyEmailOTPApi(targetEmail, code).then(res => {
+      if (res.success && res.user) {
+        const fetchedUser: User = {
+          id: res.user.id,
+          name: res.user.name,
+          email: res.user.email,
+          avatar: res.user.avatar,
+          role: res.user.role as any,
+          isExpert: res.user.isExpert,
+          expertStatus: res.user.expertStatus,
+          expertId: res.user.expertId,
+          sessionsCompleted: 14,
+          totalSpent: 4200,
+          createdAt: res.user.createdAt || "2026-01-15T10:00:00.000Z"
+        };
+        setCurrentUser(fetchedUser);
+        setAuthStage("authenticated");
+        localStorage.setItem("humanapi_auth_email", targetEmail);
+        setPendingAuth(null);
+        setIsAuthModalOpen(false);
 
-    const targetUser = pendingAuth?.demoUserObj || getInitialPendingAuth()?.demoUserObj || {
-      id: "u-curr",
-      name: "Aritra Bhui",
-      email: pendingAuth?.email || "aritra@humanapi.io",
-      avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80",
-      role: "user",
-      isExpert: false,
-      sessionsCompleted: 14,
-      totalSpent: 4200,
-      createdAt: "2026-01-15T10:00:00.000Z"
-    };
+        if (fetchedUser.role === "expert" || pendingAuth?.asExpert) {
+          setCurrentRole("expert");
+          navigate("expert-dashboard");
+        } else {
+          setCurrentRole("user");
+          navigate("user-dashboard");
+        }
+        showNotification("Email OTP verified successfully. Welcome to HumanAPI.", "success");
+      } else {
+        showNotification(res.error || "Invalid OTP code. Use code 123456.", "error");
+      }
+    });
 
-    setCurrentUser(targetUser);
-    setAuthStage("authenticated");
-    setPendingAuth(null);
-    setIsAuthModalOpen(false);
-
-    if (targetUser.role === "expert" || pendingAuth?.asExpert) {
-      setCurrentRole("expert");
-      navigate("expert-dashboard");
-    } else {
-      setCurrentRole("user");
-      navigate("user-dashboard");
-    }
-
-    showNotification("Email OTP verified successfully. Welcome to HumanAPI.", "success");
     return true;
   };
 
-  const resendEmailOtp = () => {
+  const resendEmailOtp = async () => {
     if (otpCooldownSeconds > 0) return;
     const targetEmail = pendingAuth?.email || "aritra@humanapi.io";
-    setPendingAuth((prev) =>
-      prev
-        ? {
-            ...prev,
-            generatedOtp: "123456",
-            otpSentAt: Date.now(),
-            expiresAt: Date.now() + 600000
-          }
-        : {
-            email: targetEmail,
-            generatedOtp: "123456",
-            otpSentAt: Date.now(),
-            expiresAt: Date.now() + 600000
-          }
-    );
+    await resendOTPApi(targetEmail);
     setOtpCooldownSeconds(30);
     showNotification(`New 6-digit verification code sent to ${targetEmail}. (Demo: 123456)`, "info");
   };
 
-  const logout = () => {
+  const logout = async () => {
+    await logoutApi();
+    localStorage.removeItem("humanapi_auth_email");
+    localStorage.removeItem("humanapi_auth_token");
     setCurrentUser(null);
     setPendingAuth(null);
     setAuthStage("unauthenticated");

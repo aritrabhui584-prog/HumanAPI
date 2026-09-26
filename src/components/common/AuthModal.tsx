@@ -3,12 +3,13 @@ import { useApp } from "../../context/AppContext";
 import { X, Lock, Mail, User, ShieldCheck, ArrowRight, CheckCircle2, Sparkles, Quote } from "lucide-react";
 import { EmailOtpVerification } from "../auth/EmailOtpVerification";
 import { HumanAPILoadingButton } from "../loading";
+import { loginApi, signupApi, forgotPasswordApi } from "../../Auth/authApi";
 
 export const AuthModal: React.FC = () => {
   const { isAuthModalOpen, closeAuthModal, authModalMode, login, showNotification, navigate } = useApp();
 
   const [mode, setMode] = useState<"login" | "signup" | "forgot" | "otp">(authModalMode);
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState("demo.user@humanapi.test");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [intentRole, setIntentRole] = useState<"client" | "expert">("client");
@@ -19,6 +20,9 @@ export const AuthModal: React.FC = () => {
   useEffect(() => {
     if (isAuthModalOpen) {
       setMode(authModalMode);
+      if (authModalMode === "signup") {
+        setEmail("demo.user@humanapi.test");
+      }
     }
   }, [authModalMode, isAuthModalOpen]);
 
@@ -48,24 +52,48 @@ export const AuthModal: React.FC = () => {
 
   const handleLoginSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    login(email || "aritra@humanapi.io", name || "Aritra Bhui", intentRole === "expert");
+    login(email || "demo.user@humanapi.test", name || "Demo User", intentRole === "expert");
     setMode("otp");
   };
 
-  const handleSignupSubmit = (e: React.FormEvent) => {
+  const handleSignupSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!agreedTerms) {
       showNotification("Please accept terms of service to proceed.", "error");
       return;
     }
-    login(email || "aritra@humanapi.io", name || "New Member", intentRole === "expert");
-    setMode("otp");
+    const targetEmail = email.trim() || "demo.user@humanapi.test";
+    const res = await signupApi({
+      email: targetEmail,
+      name: name || "Demo User",
+      password: password || "password123",
+      intentRole
+    });
+    if (res.success) {
+      login(targetEmail, name || "Demo User", intentRole === "expert");
+      setMode("otp");
+    } else if (res.error && res.error.toLowerCase().includes("already exists")) {
+      const loginRes = await loginApi(targetEmail);
+      if (loginRes.success) {
+        login(targetEmail, name || "Demo User", intentRole === "expert");
+        setMode("otp");
+      } else {
+        showNotification(loginRes.error || res.error || "Signup failed.", "error");
+      }
+    } else {
+      showNotification(res.error || "Signup failed.", "error");
+    }
   };
 
-  const handleForgotSubmit = (e: React.FormEvent) => {
+  const handleForgotSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    login(email || "aritra@humanapi.io", "Member", false);
-    setMode("otp");
+    const res = await forgotPasswordApi(email || "demo.user@humanapi.test");
+    if (res.success) {
+      showNotification(res.message || "Password recovery token sent to your email.", "info");
+      setMode("login");
+    } else {
+      showNotification("Failed to send reset email.", "error");
+    }
   };
 
   return (
@@ -237,7 +265,7 @@ export const AuthModal: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => {
-                      setEmail("aritra@developer.io");
+                      setEmail("demo.user@humanapi.test");
                       setPassword("demo123");
                     }}
                     className="py-2 px-2.5 rounded-[9px] border border-[#E8DCCB] bg-[#F6F0E7] text-[11px] font-semibold text-[#342A24] hover:border-[#C96F42] transition-colors"
@@ -286,7 +314,8 @@ export const AuthModal: React.FC = () => {
                     required
                     value={email}
                     onChange={e => setEmail(e.target.value)}
-                    placeholder="name@company.com"
+                    placeholder="demo.user@humanapi.test"
+                    autoComplete="off"
                     className="w-full pl-10 pr-3.5 py-3 rounded-[11px] bg-[#F6F0E7] border border-[#E8DCCB] text-xs sm:text-sm text-[#342A24] focus:outline-none focus:border-[#C96F42]"
                   />
                 </div>
