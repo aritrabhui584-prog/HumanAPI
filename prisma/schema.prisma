@@ -87,18 +87,23 @@ enum PayoutStatus {
 }
 
 model User {
-  id            String          @id @default(uuid())
-  email         String          @unique
-  passwordHash  String
-  firstName     String
-  lastName      String
-  avatarUrl     String?
-  emailVerified Boolean         @default(false)
-  status        UserStatus      @default(ACTIVE)
-  role          UserRole        @default(CLIENT)
-  createdAt     DateTime        @default(now())
-  updatedAt     DateTime        @updatedAt
-  lastLoginAt   DateTime?
+  id              String          @id @default(uuid())
+  email           String          @unique
+  normalizedEmail String?         @unique
+  passwordHash    String
+  firstName       String
+  lastName        String
+  avatarUrl       String?
+  phone           String?
+  dateOfBirth     String?
+  city            String?
+  origin          String?
+  emailVerified   Boolean         @default(false)
+  status          UserStatus      @default(ACTIVE)
+  role            UserRole        @default(CLIENT)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  lastLoginAt     DateTime?
 
   expertProfile ExpertProfile?
   cases         DeploymentCase[]
@@ -351,4 +356,43 @@ model DeploymentIncidentExample {
   ciCd                String
   probableProblemType String
   requiredSkills      String // JSON array string
+}
+
+model EmailOtpChallenge {
+  id           String    @id @default(uuid())
+  email        String
+  purpose      String    // SIGNUP, LOGIN, PASSWORD_RESET
+  otpHash      String
+  expiresAt    DateTime
+  attemptCount Int       @default(0)
+  maxAttempts  Int       @default(5)
+  usedAt       DateTime?
+  createdAt    DateTime  @default(now())
+
+  @@index([email, purpose])
+}
+
+model SessionRecord {
+  id               String    @id @default(uuid())
+  userId           String
+  sessionTokenHash String    @unique
+  expiresAt        DateTime
+  lastActivityAt   DateTime  @default(now())
+  revokedAt        DateTime?
+  createdAt        DateTime  @default(now())
+}
+
+model PasswordResetChallenge {
+  id             String    @id @default(uuid())
+  email          String
+  userId         String?
+  resetTokenHash String?   @unique
+  otpHash        String
+  expiresAt      DateTime
+  attemptCount   Int       @default(0)
+  maxAttempts    Int       @default(5)
+  usedAt         DateTime?
+  createdAt      DateTime  @default(now())
+
+  @@index([email])
 }

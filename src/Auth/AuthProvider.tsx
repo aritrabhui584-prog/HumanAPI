@@ -36,10 +36,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Initialize session on startup
   useEffect(() => {
     async function initSession() {
-      const storedEmail = localStorage.getItem("humanapi_auth_email") || "demo.user@humanapi.test";
+      const storedEmail = localStorage.getItem("humanapi_auth_email");
       const storedToken = localStorage.getItem("humanapi_auth_token");
 
-      if (storedToken || storedEmail) {
+      if (storedEmail) {
         const user = await getCurrentUserApi(storedEmail);
         if (user) {
           setCurrentUser(user);
@@ -66,6 +66,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const login = async (email: string, password?: string) => {
     setPendingEmail(email);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("humanapi_auth_pending_email", email);
+    }
     const result = await loginApi(email, password);
 
     if (result.success) {
@@ -75,6 +78,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       } else if (result.token) {
         localStorage.setItem("humanapi_auth_token", result.token);
         localStorage.setItem("humanapi_auth_email", email);
+        localStorage.removeItem("humanapi_auth_pending_email");
         const user = await getCurrentUserApi(email);
         setCurrentUser(user);
         setAuthState("AUTHENTICATED");
@@ -87,6 +91,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signup = async (data: { email: string; name: string; password: string; intentRole?: "client" | "expert" }) => {
     setPendingEmail(data.email);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("humanapi_auth_pending_email", data.email);
+    }
     const result = await signupApi(data);
 
     if (result.success) {
@@ -99,7 +106,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const verifyOtp = async (code: string) => {
-    const emailToVerify = pendingEmail || localStorage.getItem("humanapi_auth_email") || "demo.user@humanapi.test";
+    const emailToVerify = pendingEmail || localStorage.getItem("humanapi_auth_pending_email") || localStorage.getItem("humanapi_auth_email") || "";
+    if (!emailToVerify) {
+      return { success: false, error: "No email address found for OTP verification." };
+    }
     const result = await verifyEmailOTPApi(emailToVerify, code);
 
     if (result.success && result.user) {
@@ -110,6 +120,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         localStorage.setItem("humanapi_auth_token", result.token);
       }
       localStorage.setItem("humanapi_auth_email", emailToVerify);
+      localStorage.removeItem("humanapi_auth_pending_email");
       setPendingEmail(null);
       return { success: true };
     }
@@ -118,7 +129,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const resendOtp = async () => {
-    const targetEmail = pendingEmail || localStorage.getItem("humanapi_auth_email") || "demo.user@humanapi.test";
+    const targetEmail = pendingEmail || localStorage.getItem("humanapi_auth_pending_email") || localStorage.getItem("humanapi_auth_email") || "";
+    if (!targetEmail) return false;
     const res = await resendOTPApi(targetEmail);
     if (res.success) {
       setOtpCooldownSeconds(60);

@@ -51,3 +51,6 @@ scratch/
 *.sqlite3
 
 .vercel
+.env
+.env.local
+.env.*.local

@@ -19,7 +19,7 @@ export interface PendingAuthSession {
   name?: string;
   asExpert?: boolean;
   redirectRoute?: string;
-  generatedOtp: string;
+  generatedOtp?: string;
   otpSentAt: number;
   expiresAt: number;
   demoUserObj?: User;
@@ -32,6 +32,16 @@ export interface User {
   avatar: string;
   role: UserRole;
   isExpert: boolean;
+  firstName?: string;
+  lastName?: string;
+  fullName?: string;
+  phone?: string;
+  dateOfBirth?: string;
+  dob?: string;
+  city?: string;
+  origin?: string;
+  profilePhoto?: string;
+  avatarUrl?: string;
   expertStatus?: ExpertStatus;
   expertId?: string;
   expertProfileId?: string;

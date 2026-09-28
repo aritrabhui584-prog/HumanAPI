@@ -2,6 +2,7 @@ import { prisma } from "../src/backend/db/prisma";
 import { runDiagnosisEngine, matchExpertsForCase } from "../src/backend/services/diagnosisEngine";
 import { loginApi, signupApi, verifyEmailOTPApi, logoutApi, getCurrentUserApi } from "../src/Auth/authApi";
 import { mapAuthResponse, mapUser } from "../src/Auth/authAdapter";
+import { getTimeBasedGreetingPrefix, getTimeBasedGreeting, getProfileCompletionDetails } from "../src/lib/userUtils";
 
 import express from "express";
 import { apiRouter, generateToken } from "../src/backend/routes/api";
@@ -53,11 +54,41 @@ async function runTests() {
     assert(signupRes.requiresOtp === true, "Signup requires 6-digit email OTP verification");
 
     // OTP verification test
-    const otpRes = await verifyEmailOTPApi(testEmail, "123456");
+    const crypto = await import("crypto");
+    const challenge = await prisma.emailOtpChallenge.findFirst({
+      where: { email: testEmail, purpose: "SIGNUP" },
+      orderBy: { createdAt: "desc" }
+    });
+    let realOtpCode = "";
+    if (challenge) {
+      for (let i = 100000; i <= 999999; i++) {
+        const hash = crypto.createHash("sha256").update(i.toString()).digest("hex");
+        if (hash === challenge.otpHash) {
+          realOtpCode = i.toString();
+          break;
+        }
+      }
+    }
+    const otpRes = await verifyEmailOTPApi(testEmail, realOtpCode || "123456");
     assert(otpRes.success === true, "OTP verification succeeds with valid 6-digit code");
     assert(Boolean(otpRes.user), "OTP verification returns normalized user object");
     assert(otpRes.user?.email === testEmail, "Normalized user email matches registered address");
     assert(otpRes.user?.emailVerified === true, "OTP verification updates emailVerified to true in database");
+
+    // Duplicate signup test (email normalization and duplicate rejection)
+    const dupSignupRes = await signupApi({
+      email: testEmail.toUpperCase(),
+      name: "Duplicate Tester",
+      password: "password123",
+      intentRole: "client"
+    });
+    assert(dupSignupRes.success === false, "Duplicate signup with uppercase email is rejected");
+    assert(dupSignupRes.error?.includes("already exists") === true, "Duplicate signup returns clear error message");
+
+    // Wrong password login test
+    const wrongPassRes = await loginApi(testEmail, "wrongpassword999");
+    assert(wrongPassRes.success === false, "Login with incorrect password fails authentication");
+    assert(wrongPassRes.error?.includes("Invalid request") === true, "Wrong password returns generic security error without OTP generation");
 
     // Adapter test (friend's backend response structure handling)
     const mockFriendBackendResponse = {
@@ -71,10 +102,20 @@ async function runTests() {
     assert(adaptedUser.email === "friend_backend@humanapi.io", "authAdapter maps user_email to email");
     assert(adaptedUser.role === "user", "authAdapter maps user_role to role");
 
-    // Login test
+    // Login test with correct password
     const loginRes = await loginApi(testEmail, "password123");
     assert(loginRes.success === true, "Login API validates existing account");
     assert(loginRes.requiresOtp === true, "Login enforces authoritative email OTP step");
+
+    // Forgot Password & Reset test
+    const forgotRes = await fetch("http://localhost:3000/api/auth/forgot-password", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: testEmail })
+    });
+    const forgotData = await forgotRes.json();
+    assert(forgotData.success === true, "Forgot password endpoint returns success response");
+    assert(forgotData.message?.includes("associated with a HumanAPI account") === true, "Forgot password returns generic non-enumerating message");
 
     // Current user retrieval
     const currentUserObj = await getCurrentUserApi(testEmail);
@@ -87,7 +128,19 @@ async function runTests() {
 
     // 2. ROLE SEPARATION & AUTHORIZATION TESTS
     console.log("\n--- 2. ROLE SEPARATION & AUTHORIZATION TESTS ---");
-    const clientUser = await prisma.user.findFirst({ where: { role: "CLIENT" } });
+    let clientUser = await prisma.user.findFirst({ where: { role: "CLIENT" } });
+    if (clientUser) {
+      clientUser = await prisma.user.update({
+        where: { id: clientUser.id },
+        data: {
+          phone: "+91 9876543210",
+          dateOfBirth: "1994-06-15",
+          city: "Bengaluru",
+          origin: "Karnataka",
+          avatarUrl: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
+        }
+      });
+    }
     assert(Boolean(clientUser), "Client user exists in database");
     assert(clientUser?.role === "CLIENT", "Client role is explicitly CLIENT, not EXPERT/ADMIN");
 
@@ -278,6 +331,73 @@ async function runTests() {
       })
     });
     assert(dupBookingRes2.status === 409, "Duplicate booking request within 5 minutes rejected (409 DUPLICATE_BOOKING)");
+
+    // --- 10. PROFILE IDENTITY & TIME-BASED GREETING TESTS ---
+    console.log("\n--- 10. PROFILE IDENTITY & TIME-BASED GREETING TESTS ---");
+
+    // Greeting utility tests across time boundaries
+    const morningDate = new Date("2026-09-29T08:00:00");
+    const afternoonDate = new Date("2026-09-29T14:00:00");
+    const eveningDate = new Date("2026-09-29T19:00:00");
+    const nightDate = new Date("2026-09-29T23:00:00");
+
+    assert(getTimeBasedGreetingPrefix(morningDate) === "Good morning", "Morning time (08:00) resolves to 'Good morning'");
+    assert(getTimeBasedGreetingPrefix(afternoonDate) === "Good afternoon", "Afternoon time (14:00) resolves to 'Good afternoon'");
+    assert(getTimeBasedGreetingPrefix(eveningDate) === "Good evening", "Evening time (19:00) resolves to 'Good evening'");
+    assert(getTimeBasedGreetingPrefix(nightDate) === "Good evening", "Night time (23:00) resolves to 'Good evening'");
+    assert(getTimeBasedGreeting({ firstName: "Rahul" }, morningDate) === "Good morning, Rahul.", "Formatted greeting matches expected 'Good morning, Rahul.'");
+
+    // Profile completion calculation tests
+    const incompleteUser = { name: "Rahul Verma", email: "rahul@humanapi.io" };
+    const incompleteResult = getProfileCompletionDetails(incompleteUser);
+    assert(!incompleteResult.isComplete, "Incomplete profile correctly marked as incomplete");
+    assert(incompleteResult.percentage < 100, "Incomplete profile percentage is less than 100%");
+    assert(incompleteResult.missingFields.some(f => f.key === "phone"), "Missing fields list contains 'phone'");
+    assert(incompleteResult.missingFields.some(f => f.key === "profilePhoto"), "Missing fields list contains 'profilePhoto'");
+
+    const completeUser = {
+      name: "Rahul Verma",
+      email: "rahul@humanapi.io",
+      phone: "+91 9876543210",
+      avatar: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+      dateOfBirth: "1994-06-15",
+      city: "Bengaluru",
+      origin: "Karnataka"
+    };
+    const completeResult = getProfileCompletionDetails(completeUser);
+    assert(completeResult.isComplete, "Complete profile correctly marked as 100% complete");
+    assert(completeResult.percentage === 100, "Complete profile percentage equals 100%");
+    assert(completeResult.missingFields.length === 0, "Complete profile missing fields list is empty");
+
+    // Backend booking gate rejection test for incomplete profile
+    const tempIncompleteUser = await prisma.user.create({
+      data: {
+        email: `incomplete_${Date.now()}@humanapi.io`,
+        passwordHash: "$2a$10$e8wJbH2vU.P8R/3o8tO5ve8K8wU2W3xX4y5z6a7b8c9d0e1f2g3h",
+        firstName: "Test",
+        lastName: "Incomplete",
+        status: "ACTIVE",
+        role: "CLIENT"
+      }
+    });
+    const tempIncompleteToken = generateToken({ userId: tempIncompleteUser.id, email: tempIncompleteUser.email, role: "CLIENT" });
+
+    const gateRejectRes = await fetch("http://localhost:3000/api/bookings", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${tempIncompleteToken}`
+      },
+      body: JSON.stringify({
+        expertId: matchedExpertId,
+        sessionDuration: 10
+      })
+    });
+
+    assert(gateRejectRes.status === 400, "Backend booking endpoint rejects incomplete profile with HTTP 400");
+    const gateRejectJson = await gateRejectRes.json();
+    assert(gateRejectJson.error?.code === "PROFILE_INCOMPLETE", "Backend error code equals PROFILE_INCOMPLETE");
+    assert(Array.isArray(gateRejectJson.error?.missingFields) && gateRejectJson.error.missingFields.includes("phone"), "Backend error payload contains missingFields array");
 
   } catch (err: any) {
     console.error("Test execution error:", err);

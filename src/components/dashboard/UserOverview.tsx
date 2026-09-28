@@ -1,7 +1,7 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useApp } from "../../context/AppContext";
 import { RatingStars, VerificationBadge } from "../common/Badge";
-import { getUserFirstName } from "../../lib/userUtils";
+import { getTimeBasedGreeting, getProfileCompletionDetails } from "../../lib/userUtils";
 import {
   Sparkles,
   Calendar,
@@ -15,7 +15,9 @@ import {
   Search,
   Bookmark,
   FileText,
-  ChevronRight
+  ChevronRight,
+  AlertCircle,
+  UserCheck
 } from "lucide-react";
 
 import { ClientOverviewSkeleton, HumanAPIInlineLoader } from "../loading";
@@ -23,6 +25,15 @@ import { ClientOverviewSkeleton, HumanAPIInlineLoader } from "../loading";
 export const UserOverview: React.FC = () => {
   const { currentUser, bookings, projects, experts, navigate, openBookingModal, isRefreshing } = useApp();
   const [problemInput, setProblemInput] = useState("");
+  const [now, setNow] = useState<Date>(new Date());
+
+  // Periodically update local device time to handle crossing time-period boundaries seamlessly
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setNow(new Date());
+    }, 30000);
+    return () => clearInterval(timer);
+  }, []);
 
   if (isRefreshing) {
     return <ClientOverviewSkeleton />;
@@ -32,6 +43,8 @@ export const UserOverview: React.FC = () => {
   const pastBookings = bookings.filter(b => b.status === "completed");
   const recommendedExperts = experts.slice(0, 3);
   const savedExperts = experts.slice(1, 3);
+
+  const profileCompletion = getProfileCompletionDetails(currentUser);
 
   const handleAskSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -44,6 +57,42 @@ export const UserOverview: React.FC = () => {
 
   return (
     <div className="space-y-6 max-w-[1240px] mx-auto w-full min-w-0">
+      {/* PROFILE COMPLETION BANNER IF INCOMPLETE */}
+      {!profileCompletion.isComplete && (
+        <div className="p-4 sm:p-5 rounded-[16px] bg-[#FFF9F2] border border-[#C96F42]/40 shadow-warm-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="flex items-start gap-3 min-w-0">
+            <div className="p-2 rounded-[10px] bg-[#C96F42]/10 text-[#C96F42] shrink-0 mt-0.5">
+              <AlertCircle size={20} />
+            </div>
+            <div className="min-w-0 space-y-1">
+              <div className="flex items-center gap-2">
+                <span className="font-serif font-bold text-sm text-[#342A24]">Profile Completion</span>
+                <span className="px-2 py-0.5 rounded-full bg-[#C96F42] text-[#FFF9F2] text-[11px] font-bold">
+                  {profileCompletion.percentage}%
+                </span>
+              </div>
+              <p className="text-xs text-[#7B6C60] leading-relaxed">
+                Complete your mandatory profile details to enable consultation bookings with specialists.
+              </p>
+              <div className="flex flex-wrap gap-1.5 pt-1">
+                {profileCompletion.missingFields.map(f => (
+                  <span key={f.key} className="text-[10px] font-medium px-2 py-0.5 rounded-md bg-[#F6F0E7] border border-[#E8DCCB] text-[#B85D3D]">
+                    • {f.label}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </div>
+          <button
+            onClick={() => navigate("user-settings")}
+            className="w-full sm:w-auto px-4 py-2 rounded-[10px] bg-[#C96F42] hover:bg-[#B85D3D] text-[#FFF9F2] text-xs font-bold shrink-0 transition-colors flex items-center justify-center gap-1.5"
+          >
+            <span>Complete Profile</span>
+            <ArrowRight size={14} />
+          </button>
+        </div>
+      )}
+
       {/* ========================================================
           USER DASHBOARD HEADER & SEARCH FORM
           Responsive composition: buttons stack full-width on mobile
@@ -56,7 +105,7 @@ export const UserOverview: React.FC = () => {
               Deployment Diagnosis Workspace
             </span>
             <h1 className="font-serif font-bold text-xl sm:text-2xl md:text-3xl text-[#342A24] mt-0.5 break-words">
-              Good morning, {getUserFirstName(currentUser)}. What are you trying to deploy?
+              {getTimeBasedGreeting(currentUser, now)} What are you trying to deploy?
             </h1>
             <p className="text-xs sm:text-sm text-[#7B6C60] mt-1 leading-relaxed max-w-[680px]">
               HumanAPI parses your repository and build logs to diagnose software deployment problems before connecting you with a DevOps expert.

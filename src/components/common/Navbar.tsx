@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useApp } from "../../context/AppContext";
-import { getUserDisplayName, getUserFirstName } from "../../lib/userUtils";
+import { getUserDisplayName, getUserFirstName, getUserAvatarUrl } from "../../lib/userUtils";
 import {
   Menu,
   X,
@@ -188,7 +188,7 @@ export const Navbar: React.FC = () => {
                   id="nav-authenticated-user-menu"
                 >
                   <img
-                    src={currentUser.avatar}
+                    src={getUserAvatarUrl(currentUser)}
                     alt={getUserDisplayName(currentUser)}
                     className="w-8 h-8 rounded-[8px] object-cover border border-[#E8DCCB]"
                   />

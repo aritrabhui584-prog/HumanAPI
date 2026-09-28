@@ -36,8 +36,14 @@ export const EmailOtpVerification: React.FC<EmailOtpVerificationProps> = ({
     }
   }, []);
 
+  const isDemoAccount = React.useMemo(() => {
+    const targetEmail = pendingAuth?.email || localStorage.getItem("humanapi_auth_pending_email") || localStorage.getItem("humanapi_auth_email") || "";
+    const e = targetEmail.toLowerCase().trim();
+    return e === "demo.user@humanapi.test" || e === "demo.client@humanapi.test" || e === "demo.expert@humanapi.test" || e === "demo.user";
+  }, [pendingAuth?.email]);
+
   const maskedEmail = React.useMemo(() => {
-    const targetEmail = pendingAuth?.email || "demo.user@humanapi.test";
+    const targetEmail = pendingAuth?.email || localStorage.getItem("humanapi_auth_pending_email") || localStorage.getItem("humanapi_auth_email") || "your email";
     const parts = targetEmail.split("@");
     if (parts.length !== 2) return targetEmail;
     const [name, domain] = parts;
@@ -100,30 +106,32 @@ export const EmailOtpVerification: React.FC<EmailOtpVerificationProps> = ({
     }
   };
 
-  const handleVerify = (codeToTest?: string) => {
-    const code = codeToTest || otpDigits.join("");
-    if (code.length < 6) {
-      setErrorMsg("Please enter the complete 6-digit verification code.");
+  const handleVerify = async (codeToTest?: string) => {
+    const code = (codeToTest || otpDigits.join("")).trim();
+    if (code.length < 5) {
+      setErrorMsg("Please enter the complete verification code.");
       return;
     }
 
     setIsVerifying(true);
     setErrorMsg(null);
 
-    // Small delay to feel natural
-    setTimeout(() => {
-      const success = verifyEmailOtp(code);
-      setIsVerifying(false);
+    try {
+      const success = await verifyEmailOtp(code);
       if (success) {
         if (onSuccess) onSuccess();
       } else {
-        setErrorMsg("Invalid or expired verification code. Use code 123456.");
+        setErrorMsg("Invalid or expired verification code. Please check your email and try again.");
         setOtpDigits(["", "", "", "", "", ""]);
         if (inputRefs.current[0]) {
           inputRefs.current[0].focus();
         }
       }
-    }, 400);
+    } catch (err: any) {
+      setErrorMsg(err.message || "Verification failed. Please try again.");
+    } finally {
+      setIsVerifying(false);
+    }
   };
 
   const handleResend = () => {
@@ -153,24 +161,26 @@ export const EmailOtpVerification: React.FC<EmailOtpVerificationProps> = ({
         </p>
       </div>
 
-      {/* Demo helper banner */}
-      <div className="p-3 rounded-[12px] bg-[#F6F0E7] border border-[#E8DCCB] flex items-center justify-between gap-3 text-xs">
-        <div className="flex items-center gap-2 text-[#342A24]">
-          <Lock size={14} className="text-[#C96F42] shrink-0" />
-          <span>Demo Verification Code: <strong className="font-mono text-[#C96F42] font-bold">123456</strong></span>
+      {/* Demo helper banner - ONLY displayed for demo accounts */}
+      {isDemoAccount && (
+        <div className="p-3 rounded-[12px] bg-[#F6F0E7] border border-[#E8DCCB] flex items-center justify-between gap-3 text-xs">
+          <div className="flex items-center gap-2 text-[#342A24]">
+            <Lock size={14} className="text-[#C96F42] shrink-0" />
+            <span>Demo Verification Code: <strong className="font-mono text-[#C96F42] font-bold">123456</strong></span>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              const demo = ["1", "2", "3", "4", "5", "6"];
+              setOtpDigits(demo);
+              handleVerify("123456");
+            }}
+            className="px-2.5 py-1 rounded-[8px] bg-[#C96F42] hover:bg-[#B85D3D] text-[#FFF9F2] text-[11px] font-bold transition-all"
+          >
+            Auto-fill
+          </button>
         </div>
-        <button
-          type="button"
-          onClick={() => {
-            const demo = ["1", "2", "3", "4", "5", "6"];
-            setOtpDigits(demo);
-            handleVerify("123456");
-          }}
-          className="px-2.5 py-1 rounded-[8px] bg-[#C96F42] hover:bg-[#B85D3D] text-[#FFF9F2] text-[11px] font-bold transition-all"
-        >
-          Auto-fill
-        </button>
-      </div>
+      )}
 
       {/* 6-Digit Input Row */}
       <div className="space-y-3">

@@ -91,7 +91,7 @@ export async function loginApi(email: string, password?: string): Promise<{
       success: true,
       requiresOtp: mapped.requiresOtp,
       email: data.user_email || email,
-      demoOtp: data.demoOtp || "123456",
+      demoOtp: data.demoOtp || undefined,
       token: mapped.token || undefined,
       message: data.message
     };
@@ -142,7 +142,7 @@ export async function signupApi(data: {
       success: true,
       requiresOtp: mapped.requiresOtp,
       email: data.email,
-      demoOtp: body.demoOtp || "123456",
+      demoOtp: body.demoOtp || undefined,
       token: mapped.token || undefined,
       message: body.message
     };
@@ -206,16 +206,16 @@ export async function resendOTPApi(email: string): Promise<{ success: boolean; d
 
     const parsed = await parseApiResponse(res);
     if (!parsed.ok || !parsed.data) {
-      return { success: false, demoOtp: "123456", message: parsed.error || "Failed to resend verification code." };
+      return { success: false, message: parsed.error || "Failed to resend verification code." };
     }
 
     return {
       success: true,
-      demoOtp: parsed.data.demoOtp || "123456",
+      demoOtp: parsed.data.demoOtp || undefined,
       message: parsed.data.message || "New 6-digit verification code sent to your email address."
     };
   } catch (err) {
-    return { success: false, demoOtp: "123456", message: "Verification code sent." };
+    return { success: false, message: "Failed to connect to verification server." };
   }
 }
 
@@ -251,8 +251,13 @@ export async function logoutApi(): Promise<void> {
 
 export async function getCurrentUserApi(email?: string): Promise<any | null> {
   try {
+    const token = typeof window !== "undefined" ? localStorage.getItem("humanapi_auth_token") : null;
+    const headers: Record<string, string> = {};
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
+    }
     const query = email ? `?email=${encodeURIComponent(email)}` : "";
-    const res = await fetch(`${API_BASE}/auth/current-user${query}`);
+    const res = await fetch(`${API_BASE}/auth/current-user${query}`, { headers });
     const parsed = await parseApiResponse(res);
     if (!parsed.ok || !parsed.data) return null;
     return mapUser(parsed.data);

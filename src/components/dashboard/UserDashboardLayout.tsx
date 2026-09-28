@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useApp } from "../../context/AppContext";
-import { getUserDisplayName } from "../../lib/userUtils";
+import { getUserDisplayName, getUserAvatarUrl } from "../../lib/userUtils";
 import { HumanAPILogo } from "../brand/HumanAPILogo";
 import { MobileNavigationDrawer } from "../common/MobileNavigationDrawer";
 import {
@@ -100,7 +100,7 @@ export const UserDashboardLayout: React.FC<{
             Client
           </span>
           <img
-            src={currentUser.avatar}
+            src={getUserAvatarUrl(currentUser)}
             alt={userDisplayName}
             className="w-7 h-7 rounded-[8px] object-cover border border-[#E8DCCB]"
           />
@@ -120,7 +120,7 @@ export const UserDashboardLayout: React.FC<{
         <div className="p-5 border-b border-[#E8DCCB] shrink-0">
           <div className="flex items-center gap-3 mb-3">
             <img
-              src={currentUser.avatar}
+              src={getUserAvatarUrl(currentUser)}
               alt={userDisplayName}
               className="w-11 h-11 rounded-[12px] object-cover border border-[#E8DCCB]"
             />

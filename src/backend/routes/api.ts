@@ -4,6 +4,17 @@ import crypto from "crypto";
 import { prisma } from "../db/prisma";
 import { runDiagnosisEngine, matchExpertsForCase, analyzeAskQueryWithGemini, generateDissatisfactionReportAndRematch } from "../services/diagnosisEngine";
 import { sendOtpEmail } from "../services/emailService";
+import {
+  normalizeEmail,
+  isDemoAccount,
+  hashPassword,
+  verifyPassword,
+  createAndSendOtp,
+  verifyOtpChallenge,
+  createPasswordResetChallenge,
+  verifyPasswordResetOtp,
+  resetUserPassword
+} from "../services/authService";
 import { validateDeploymentQuery, DEPLOYMENT_VALIDATION_ERROR_MESSAGE } from "../../lib/validation/deploymentQueryValidator";
 
 export const apiRouter = Router();
@@ -121,30 +132,21 @@ apiRouter.post("/auth/login", async (req: Request, res: Response) => {
       return;
     }
 
-    const { email } = parse.data;
-    let user = await prisma.user.findUnique({
-      where: { email },
+    const { email, password } = parse.data;
+    const normalizedEmail = normalizeEmail(email);
+
+    const user = await prisma.user.findFirst({
+      where: {
+        OR: [{ email: normalizedEmail }, { normalizedEmail }]
+      },
       include: { expertProfile: true }
     });
 
-    if (!user) {
-      const nameParts = email.split("@")[0].split(".");
-      const firstName = nameParts[0] ? nameParts[0].charAt(0).toUpperCase() + nameParts[0].slice(1) : "User";
-      const lastName = nameParts[1] ? nameParts[1].charAt(0).toUpperCase() + nameParts[1].slice(1) : "Client";
-
-      user = await prisma.user.create({
-        data: {
-          email,
-          passwordHash: "$2a$10$e8wJbH2vU.P8R/3o8tO5ve8K8wU2W3xX4y5z6a7b8c9d0e1f2g3h",
-          firstName,
-          lastName,
-          avatarUrl: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80",
-          role: "CLIENT",
-          status: "ACTIVE",
-          emailVerified: true
-        },
-        include: { expertProfile: true }
-      });
+    // PASSWORD-FIRST RULE: Verify password BEFORE sending OTP or creating session
+    if (!user || (password && !verifyPassword(password, user.passwordHash))) {
+      // DO NOT SEND OTP, DO NOT CREATE SESSION, DO NOT EXPOSE ACCOUNT EXISTENCE
+      sendError(res, 401, "INVALID_CREDENTIALS", "Invalid request. Please check your email and password.");
+      return;
     }
 
     if (user.status === "BANNED" || user.status === "SUSPENDED") {
@@ -153,19 +155,23 @@ apiRouter.post("/auth/login", async (req: Request, res: Response) => {
     }
 
     const tempToken = generateToken({ userId: user.id, email: user.email, role: user.role });
+    const otpRes = await createAndSendOtp(user.email, "LOGIN");
 
-    // Send real OTP email to user's address
-    await sendOtpEmail(user.email, "123456");
+    if (!otpRes.success) {
+      sendError(res, 500, "EMAIL_DELIVERY_FAILED", otpRes.error || "Failed to process verification code. Please try again.");
+      return;
+    }
 
     res.json({
       success: true,
       authStage: "otp_required",
       email: user.email,
-      requiresEmailVerification: !user.emailVerified,
+      requiresEmailVerification: true,
+      requiresOtp: true,
       otpSent: true,
-      demoOtp: "123456",
+      ...(otpRes.demoOtp ? { demoOtp: otpRes.demoOtp } : {}),
       token: tempToken,
-      message: "Security OTP sent to your email address."
+      message: `Security OTP sent to your verified email address.`
     });
   } catch (err: any) {
     sendError(res, 500, "INTERNAL_ERROR", err.message || "Failed to process login");
@@ -187,11 +193,18 @@ apiRouter.post("/auth/signup", async (req: Request, res: Response) => {
       return;
     }
 
-    const { email, name, intentRole } = parse.data;
-    const existing = await prisma.user.findUnique({ where: { email } });
+    const { email, name, password, intentRole } = parse.data;
+    const normalizedEmail = normalizeEmail(email);
+
+    // UNIQUE EMAIL RULE: Reject duplicate accounts at database & service layer
+    const existing = await prisma.user.findFirst({
+      where: {
+        OR: [{ email: normalizedEmail }, { normalizedEmail }]
+      }
+    });
 
     if (existing) {
-      sendError(res, 409, "EMAIL_EXISTS", "An account with this email already exists.");
+      sendError(res, 409, "EMAIL_EXISTS", "An account already exists with this email. Please sign in instead.");
       return;
     }
 
@@ -199,17 +212,19 @@ apiRouter.post("/auth/signup", async (req: Request, res: Response) => {
     const firstName = nameParts[0] || name;
     const lastName = nameParts.slice(1).join(" ") || "Member";
     const assignedRole = intentRole === "expert" ? "EXPERT" : "CLIENT";
+    const passwordHash = hashPassword(password);
 
     const user = await prisma.user.create({
       data: {
-        email,
-        passwordHash: "$2a$10$e8wJbH2vU.P8R/3o8tO5ve8K8wU2W3xX4y5z6a7b8c9d0e1f2g3h",
+        email: normalizedEmail,
+        normalizedEmail,
+        passwordHash,
         firstName,
         lastName,
         avatarUrl: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80",
         role: assignedRole,
         status: "ACTIVE",
-        emailVerified: false
+        emailVerified: isDemoAccount(normalizedEmail)
       }
     });
 
@@ -227,17 +242,21 @@ apiRouter.post("/auth/signup", async (req: Request, res: Response) => {
     }
 
     const tempToken = generateToken({ userId: user.id, email: user.email, role: user.role });
+    const otpRes = await createAndSendOtp(user.email, "SIGNUP");
 
-    // Send real OTP email to user's address
-    await sendOtpEmail(user.email, "123456");
+    if (!otpRes.success) {
+      sendError(res, 500, "EMAIL_DELIVERY_FAILED", otpRes.error || "Failed to deliver OTP to your email address. Please try again.");
+      return;
+    }
 
     res.json({
       success: true,
       authStage: "otp_required",
       email: user.email,
       requiresEmailVerification: true,
+      requiresOtp: true,
       otpSent: true,
-      demoOtp: "123456",
+      ...(otpRes.demoOtp ? { demoOtp: otpRes.demoOtp } : {}),
       token: tempToken,
       message: "Account created! Enter the 6-digit OTP code sent to your email."
     });
@@ -248,7 +267,7 @@ apiRouter.post("/auth/signup", async (req: Request, res: Response) => {
 
 const otpSchema = z.object({
   email: z.string().email(),
-  code: z.string().length(6)
+  code: z.string().min(5).max(6)
 });
 
 apiRouter.post("/auth/verify-otp", async (req: Request, res: Response) => {
@@ -260,13 +279,21 @@ apiRouter.post("/auth/verify-otp", async (req: Request, res: Response) => {
     }
 
     const { email, code } = parse.data;
-    if (code !== "123456" && code !== "000000") {
-      sendError(res, 401, "INVALID_OTP", "The verification code entered is incorrect. Use code 123456.");
+    const normalizedEmail = normalizeEmail(email);
+
+    // Verify OTP challenge against database / challenge store
+    const signupVerification = await verifyOtpChallenge(normalizedEmail, code, "SIGNUP");
+    const loginVerification = signupVerification.valid ? signupVerification : await verifyOtpChallenge(normalizedEmail, code, "LOGIN");
+
+    if (!loginVerification.valid) {
+      sendError(res, 401, "INVALID_OTP", loginVerification.error || "The verification code entered is incorrect.");
       return;
     }
 
-    const user = await prisma.user.findUnique({
-      where: { email },
+    const user = await prisma.user.findFirst({
+      where: {
+        OR: [{ email: normalizedEmail }, { normalizedEmail }]
+      },
       include: { expertProfile: true }
     });
 
@@ -290,6 +317,15 @@ apiRouter.post("/auth/verify-otp", async (req: Request, res: Response) => {
 
     const isApprovedExpert = user.role === "EXPERT" && user.expertProfile?.verificationStatus === "APPROVED";
     const token = generateToken({ userId: user.id, email: user.email, role: user.role });
+
+    // Persist authenticated session record
+    await prisma.sessionRecord.create({
+      data: {
+        userId: user.id,
+        sessionTokenHash: hashPassword(token).slice(0, 32),
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+      }
+    }).catch(() => {}); // Ignore non-critical session record log duplicate
 
     res.json({
       success: true,
@@ -318,13 +354,23 @@ apiRouter.post("/auth/verify-otp", async (req: Request, res: Response) => {
 apiRouter.post("/auth/resend-otp", async (req: Request, res: Response) => {
   try {
     const { email } = req.body;
-    const targetEmail = email || "demo.user@humanapi.test";
-    await sendOtpEmail(targetEmail, "123456");
+    if (!email || typeof email !== "string") {
+      sendError(res, 400, "VALIDATION_ERROR", "Email address is required to resend verification code.");
+      return;
+    }
+    const normalizedEmail = normalizeEmail(email);
+    const otpRes = await createAndSendOtp(normalizedEmail, "LOGIN");
+
+    if (!otpRes.success) {
+      sendError(res, 500, "EMAIL_DELIVERY_FAILED", otpRes.error || "Failed to resend verification code.");
+      return;
+    }
+
     res.json({
       success: true,
-      email: targetEmail,
-      demoOtp: "123456",
-      message: "New 6-digit OTP sent to your email address."
+      email: normalizedEmail,
+      ...(otpRes.demoOtp ? { demoOtp: otpRes.demoOtp } : {}),
+      message: "New 6-digit verification code sent to your email address."
     });
   } catch (err: any) {
     sendError(res, 500, "INTERNAL_ERROR", err.message);
@@ -334,13 +380,44 @@ apiRouter.post("/auth/resend-otp", async (req: Request, res: Response) => {
 apiRouter.post("/auth/forgot-password", async (req: Request, res: Response) => {
   try {
     const { email } = req.body;
-    res.json({
-      success: true,
-      email: email || "demo.user@humanapi.test",
-      resetToken: `reset_${Date.now()}`,
-      demoOtp: "123456",
-      message: "Password recovery token sent to your email."
-    });
+    const result = await createPasswordResetChallenge(email);
+    res.json(result);
+  } catch (err: any) {
+    sendError(res, 500, "INTERNAL_ERROR", err.message);
+  }
+});
+
+apiRouter.post("/auth/verify-reset-otp", async (req: Request, res: Response) => {
+  try {
+    const { email, code } = req.body;
+    if (!email || !code) {
+      sendError(res, 400, "VALIDATION_ERROR", "Email and reset code are required.");
+      return;
+    }
+    const result = await verifyPasswordResetOtp(email, code);
+    if (!result.success) {
+      sendError(res, 401, "INVALID_RESET_CODE", result.error || "Invalid reset code.");
+      return;
+    }
+    res.json(result);
+  } catch (err: any) {
+    sendError(res, 500, "INTERNAL_ERROR", err.message);
+  }
+});
+
+apiRouter.post("/auth/reset-password", async (req: Request, res: Response) => {
+  try {
+    const { email, resetToken, newPassword, confirmPassword } = req.body;
+    if (newPassword !== confirmPassword) {
+      sendError(res, 400, "PASSWORD_MISMATCH", "New password and password confirmation do not match.");
+      return;
+    }
+    const result = await resetUserPassword(email, resetToken, newPassword);
+    if (!result.success) {
+      sendError(res, 400, "RESET_FAILED", result.error || "Failed to reset password.");
+      return;
+    }
+    res.json(result);
   } catch (err: any) {
     sendError(res, 500, "INTERNAL_ERROR", err.message);
   }
@@ -363,10 +440,14 @@ apiRouter.get("/auth/current-user", authenticateToken, async (req: Authenticated
     res.json({
       id: user.id,
       email: user.email,
-      name: `${user.firstName} ${user.lastName}`,
+      name: `${user.firstName} ${user.lastName}`.trim(),
       firstName: user.firstName,
       lastName: user.lastName,
       avatar: user.avatarUrl,
+      phone: user.phone,
+      dateOfBirth: user.dateOfBirth,
+      city: user.city,
+      origin: user.origin,
       role: user.role.toLowerCase(),
       status: user.status.toLowerCase(),
       isExpert: isApprovedExpert,
@@ -390,13 +471,136 @@ apiRouter.get("/me", authenticateToken, async (req: AuthenticatedRequest, res: R
     res.json({
       id: user.id,
       email: user.email,
-      name: `${user.firstName} ${user.lastName}`,
+      name: `${user.firstName} ${user.lastName}`.trim(),
+      firstName: user.firstName,
+      lastName: user.lastName,
+      avatar: user.avatarUrl,
+      phone: user.phone,
+      dateOfBirth: user.dateOfBirth,
+      city: user.city,
+      origin: user.origin,
       role: user.role.toLowerCase(),
       status: user.status.toLowerCase(),
       isExpert: user.role === "EXPERT" && user.expertProfile?.verificationStatus === "APPROVED",
       expertStatus: user.expertProfile?.verificationStatus || "NOT_EXPERT",
       expertId: user.expertProfile?.id,
-      avatar: user.avatarUrl
+    });
+  } catch (err: any) {
+    sendError(res, 500, "INTERNAL_ERROR", err.message);
+  }
+});
+
+apiRouter.put("/user/profile", authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const user = req.user;
+    if (!user) {
+      sendError(res, 401, "UNAUTHORIZED", "Authentication required");
+      return;
+    }
+
+    const { name, firstName, lastName, phone, dateOfBirth, city, origin } = req.body;
+
+    let fName = firstName;
+    let lName = lastName;
+    if (name && typeof name === "string" && (!firstName || !lastName)) {
+      const parts = name.trim().split(" ");
+      fName = parts[0] || user.firstName;
+      lName = parts.slice(1).join(" ") || user.lastName;
+    }
+
+    const updatedUser = await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        ...(fName !== undefined ? { firstName: fName } : {}),
+        ...(lName !== undefined ? { lastName: lName } : {}),
+        ...(phone !== undefined ? { phone } : {}),
+        ...(dateOfBirth !== undefined ? { dateOfBirth } : {}),
+        ...(city !== undefined ? { city } : {}),
+        ...(origin !== undefined ? { origin } : {})
+      },
+      include: { expertProfile: true }
+    });
+
+    const isApprovedExpert = updatedUser.role === "EXPERT" && updatedUser.expertProfile?.verificationStatus === "APPROVED";
+
+    res.json({
+      success: true,
+      user: {
+        id: updatedUser.id,
+        email: updatedUser.email,
+        name: `${updatedUser.firstName} ${updatedUser.lastName}`.trim(),
+        firstName: updatedUser.firstName,
+        lastName: updatedUser.lastName,
+        avatar: updatedUser.avatarUrl,
+        phone: updatedUser.phone,
+        dateOfBirth: updatedUser.dateOfBirth,
+        city: updatedUser.city,
+        origin: updatedUser.origin,
+        role: updatedUser.role.toLowerCase(),
+        status: updatedUser.status.toLowerCase(),
+        isExpert: isApprovedExpert,
+        expertStatus: updatedUser.expertProfile?.verificationStatus || "NOT_EXPERT",
+        expertId: updatedUser.expertProfile?.id,
+        emailVerified: updatedUser.emailVerified
+      }
+    });
+  } catch (err: any) {
+    sendError(res, 500, "INTERNAL_ERROR", err.message);
+  }
+});
+
+apiRouter.post("/user/avatar", authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const user = req.user;
+    if (!user) {
+      sendError(res, 401, "UNAUTHORIZED", "Authentication required");
+      return;
+    }
+
+    const { avatar, avatarUrl, remove } = req.body;
+
+    let newAvatarUrl: string | null = null;
+    if (!remove) {
+      const targetAvatar = avatar || avatarUrl;
+      if (!targetAvatar || typeof targetAvatar !== "string") {
+        sendError(res, 400, "INVALID_AVATAR", "Avatar image payload is required");
+        return;
+      }
+      if (targetAvatar.length > 7 * 1024 * 1024) {
+        sendError(res, 400, "FILE_TOO_LARGE", "Uploaded photo exceeds maximum size limit of 5MB.");
+        return;
+      }
+      newAvatarUrl = targetAvatar;
+    }
+
+    const updatedUser = await prisma.user.update({
+      where: { id: user.id },
+      data: { avatarUrl: newAvatarUrl },
+      include: { expertProfile: true }
+    });
+
+    const isApprovedExpert = updatedUser.role === "EXPERT" && updatedUser.expertProfile?.verificationStatus === "APPROVED";
+
+    res.json({
+      success: true,
+      user: {
+        id: updatedUser.id,
+        email: updatedUser.email,
+        name: `${updatedUser.firstName} ${updatedUser.lastName}`.trim(),
+        firstName: updatedUser.firstName,
+        lastName: updatedUser.lastName,
+        avatar: updatedUser.avatarUrl,
+        phone: updatedUser.phone,
+        dateOfBirth: updatedUser.dateOfBirth,
+        city: updatedUser.city,
+        origin: updatedUser.origin,
+        role: updatedUser.role.toLowerCase(),
+        status: updatedUser.status.toLowerCase(),
+        isExpert: isApprovedExpert,
+        expertStatus: updatedUser.expertProfile?.verificationStatus || "NOT_EXPERT",
+        expertId: updatedUser.expertProfile?.id,
+        emailVerified: updatedUser.emailVerified
+      }
     });
   } catch (err: any) {
     sendError(res, 500, "INTERNAL_ERROR", err.message);
@@ -677,6 +881,43 @@ apiRouter.post("/bookings", authenticateToken, async (req: AuthenticatedRequest,
 
     const { expertId, deploymentCaseId, sessionDuration, scheduledAt } = parse.data;
     const client = req.user;
+
+    // BACKEND ENFORCEMENT OF PROFILE COMPLETION (Requirements 7, 8, 9)
+    const clientName = (client.name || `${client.firstName || ""} ${client.lastName || ""}`).trim();
+    const clientEmail = (client.email || "").trim();
+    const clientPhone = (client.phone || "").trim();
+    const clientPhoto = client.avatarUrl || client.avatar;
+    const clientDob = (client.dateOfBirth || "").trim();
+    const clientCity = (client.city || "").trim();
+    const clientOrigin = (client.origin || "").trim();
+
+    const isPhotoUploaded = Boolean(
+      clientPhoto &&
+      clientPhoto.trim() &&
+      !clientPhoto.includes("photo-1534528741775") &&
+      !clientPhoto.includes("photo-1535713875002") &&
+      !clientPhoto.startsWith("data:image/svg+xml;utf8,<svg")
+    );
+
+    const missingFields: string[] = [];
+    if (!clientName || clientName === "Member") missingFields.push("name");
+    if (!clientEmail || !clientEmail.includes("@")) missingFields.push("email");
+    if (!clientPhone) missingFields.push("phone");
+    if (!isPhotoUploaded) missingFields.push("profilePhoto");
+    if (!clientDob) missingFields.push("dateOfBirth");
+    if (!clientCity) missingFields.push("city");
+    if (!clientOrigin) missingFields.push("origin");
+
+    if (missingFields.length > 0) {
+      res.status(400).json({
+        error: {
+          code: "PROFILE_INCOMPLETE",
+          message: "Complete your profile before booking a consultation.",
+          missingFields
+        }
+      });
+      return;
+    }
 
     const expert = await prisma.expertProfile.findUnique({
       where: { id: expertId },

@@ -36,6 +36,7 @@ import {
 } from "../data/mockData";
 import { PaymentCreateOptions, defaultPaymentGateway } from "../lib/paymentGateway";
 import { loginApi, signupApi, verifyEmailOTPApi, resendOTPApi, logoutApi, getCurrentUserApi } from "../Auth/authApi";
+import { DEFAULT_USER_AVATAR } from "../lib/userUtils";
 
 interface AppContextType {
   currentUser: User | null;
@@ -43,6 +44,9 @@ interface AppContextType {
   authStage: AuthStage;
   pendingAuth: PendingAuthSession | null;
   otpCooldownSeconds: number;
+  updateUserProfile: (profileData: { name?: string; firstName?: string; lastName?: string; phone?: string; dateOfBirth?: string; city?: string; origin?: string }) => Promise<boolean>;
+  uploadProfilePhoto: (fileOrBase64: string) => Promise<boolean>;
+  removeProfilePhoto: () => Promise<boolean>;
   currentRole: UserRole;
   currentView: string;
   viewParams: any;
@@ -83,9 +87,9 @@ interface AppContextType {
   switchRole: (role: UserRole) => void;
   openAccreditationModal: () => void;
   closeAccreditationModal: () => void;
-  login: (email: string, name?: string, asExpert?: boolean) => void;
-  verifyEmailOtp: (code: string) => boolean;
-  resendEmailOtp: () => void;
+  login: (email: string, password?: string, name?: string, asExpert?: boolean) => Promise<{ success: boolean; error?: string }>;
+  verifyEmailOtp: (code: string) => Promise<boolean>;
+  resendEmailOtp: () => Promise<void>;
   logout: () => void;
   openAuthModal: (mode?: "login" | "signup" | "otp" | "forgot") => void;
   closeAuthModal: () => void;
@@ -166,34 +170,6 @@ const getInitialView = (): string => {
 };
 
 const getInitialPendingAuth = (): PendingAuthSession | null => {
-  if (typeof window === "undefined") return null;
-  const path = window.location.pathname.replace(/^\/|\/$/g, "");
-  const protectedPaths = [
-    "dashboard", "user-dashboard", "payments", "user-payments",
-    "history", "user-history", "projects", "user-projects",
-    "settings", "user-settings", "ask", "user-ask", "expert-dashboard"
-  ];
-  if (protectedPaths.includes(path)) {
-    return {
-      email: "demo.user@humanapi.test",
-      name: "Demo User",
-      asExpert: path === "expert-dashboard",
-      generatedOtp: "123456",
-      otpSentAt: Date.now(),
-      expiresAt: Date.now() + 600000,
-      demoUserObj: {
-        id: "u-curr",
-        name: "Demo User",
-        email: "demo.user@humanapi.test",
-        avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80",
-        role: path === "expert-dashboard" ? "expert" : "user",
-        isExpert: path === "expert-dashboard",
-        sessionsCompleted: 14,
-        totalSpent: 4200,
-        createdAt: "2026-01-15T10:00:00.000Z"
-      }
-    };
-  }
   return null;
 };
 
@@ -220,7 +196,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             id: userObj.id,
             name: userObj.name,
             email: userObj.email,
-            avatar: userObj.avatar,
+            avatar: userObj.avatar || DEFAULT_USER_AVATAR,
+            firstName: userObj.firstName,
+            lastName: userObj.lastName,
+            phone: userObj.phone,
+            dateOfBirth: userObj.dateOfBirth,
+            city: userObj.city,
+            origin: userObj.origin,
             role: userObj.role as any,
             isExpert: userObj.isExpert,
             expertStatus: userObj.expertStatus,
@@ -536,22 +518,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return () => clearInterval(interval);
   }, [otpCooldownSeconds]);
 
-  const login = async (email: string, name = "Aritra Bhui", asExpert = false) => {
-    const res = await loginApi(email);
+  const login = async (email: string, password?: string, name = "", asExpert = false): Promise<{ success: boolean; error?: string }> => {
+    const res = await loginApi(email, password);
     if (res.success) {
+      const targetEmail = res.email || email;
+      if (typeof window !== "undefined") {
+        localStorage.setItem("humanapi_auth_pending_email", targetEmail);
+      }
+
       const userObj: User = {
         id: `u_${Date.now()}`,
-        name: name || (email && email.includes("@") ? email.split("@")[0] : "Aritra Bhui"),
-        email: res.email || email,
-        avatar: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=200&auto=format&fit=crop&q=80",
+        name: name || (targetEmail && targetEmail.includes("@") ? targetEmail.split("@")[0] : "User"),
+        email: targetEmail,
+        avatar: DEFAULT_USER_AVATAR,
         role: asExpert ? "expert" : "user",
         isExpert: asExpert,
         expertId: asExpert ? "exp-1" : undefined,
-        headline: "Product Engineer & Tech Founder",
-        bio: "Building next-generation real-time applications.",
-        interests: ["Software Development", "System Architecture"],
-        sessionsCompleted: 4,
-        totalSpent: 1240,
+        headline: "Product Engineer",
+        bio: "HumanAPI Member",
+        sessionsCompleted: 0,
+        totalSpent: 0,
         createdAt: new Date().toISOString()
       };
 
@@ -559,7 +545,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         email: userObj.email,
         name: userObj.name,
         asExpert,
-        generatedOtp: res.demoOtp || "123456",
+        generatedOtp: res.demoOtp,
         otpSentAt: Date.now(),
         expiresAt: Date.now() + 600000,
         demoUserObj: userObj
@@ -568,65 +554,86 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setCurrentUser(null);
       setAuthModalMode("otp");
       setIsAuthModalOpen(true);
-      setOtpCooldownSeconds(30);
-      showNotification(`Password verified. Security OTP sent to ${userObj.email}`, "info");
+      setOtpCooldownSeconds(60);
+      showNotification(res.message || `Security verification OTP sent to ${userObj.email}`, "info");
+      return { success: true };
     } else {
       showNotification(res.error || "Login failed.", "error");
+      return { success: false, error: res.error };
     }
   };
 
-  const verifyEmailOtp = (code: string): boolean => {
-    const targetEmail = pendingAuth?.email || localStorage.getItem("humanapi_auth_email") || "aritra@humanapi.io";
-    
-    // Asynchronous backend verification trigger
-    verifyEmailOTPApi(targetEmail, code).then(res => {
-      if (res.success && res.user) {
-        const fetchedUser: User = {
-          id: res.user.id,
-          name: res.user.name,
-          email: res.user.email,
-          avatar: res.user.avatar,
-          role: res.user.role as any,
-          isExpert: res.user.isExpert,
-          expertStatus: res.user.expertStatus,
-          expertId: res.user.expertId,
-          sessionsCompleted: 14,
-          totalSpent: 4200,
-          createdAt: res.user.createdAt || "2026-01-15T10:00:00.000Z"
-        };
-        setCurrentUser(fetchedUser);
-        setAuthStage("authenticated");
-        localStorage.setItem("humanapi_auth_email", targetEmail);
-        setPendingAuth(null);
-        setIsAuthModalOpen(false);
+  const verifyEmailOtp = async (code: string): Promise<boolean> => {
+    const targetEmail = pendingAuth?.email || localStorage.getItem("humanapi_auth_pending_email") || localStorage.getItem("humanapi_auth_email") || "";
+    if (!targetEmail) {
+      showNotification("No pending authentication session found.", "error");
+      return false;
+    }
 
-        if (fetchedUser.role === "expert" || pendingAuth?.asExpert) {
-          setCurrentRole("expert");
-          navigate("expert-dashboard");
-        } else {
-          setCurrentRole("user");
-          navigate("user-dashboard");
-        }
-        showNotification("Email OTP verified successfully. Welcome to HumanAPI.", "success");
-      } else {
-        showNotification(res.error || "Invalid OTP code. Use code 123456.", "error");
+    const res = await verifyEmailOTPApi(targetEmail, code);
+    if (res.success && res.user) {
+      const fetchedUser: User = {
+        id: res.user.id,
+        name: res.user.name,
+        email: res.user.email,
+        avatar: res.user.avatar || DEFAULT_USER_AVATAR,
+        firstName: res.user.firstName,
+        lastName: res.user.lastName,
+        phone: res.user.phone,
+        dateOfBirth: res.user.dateOfBirth,
+        city: res.user.city,
+        origin: res.user.origin,
+        role: res.user.role as any,
+        isExpert: res.user.isExpert,
+        expertStatus: res.user.expertStatus,
+        expertId: res.user.expertId,
+        sessionsCompleted: 14,
+        totalSpent: 4200,
+        createdAt: res.user.createdAt || new Date().toISOString()
+      };
+      setCurrentUser(fetchedUser);
+      setAuthStage("authenticated");
+      localStorage.setItem("humanapi_auth_email", targetEmail);
+      localStorage.removeItem("humanapi_auth_pending_email");
+      if (res.token) {
+        localStorage.setItem("humanapi_auth_token", res.token);
       }
-    });
+      setPendingAuth(null);
+      setIsAuthModalOpen(false);
 
-    return true;
+      if (fetchedUser.role === "expert" || pendingAuth?.asExpert) {
+        setCurrentRole("expert");
+        navigate("expert-dashboard");
+      } else {
+        setCurrentRole("user");
+        navigate("user-dashboard");
+      }
+      showNotification("Authentication verified successfully. Welcome to HumanAPI.", "success");
+      return true;
+    } else {
+      showNotification(res.error || "Invalid verification code.", "error");
+      return false;
+    }
   };
 
-  const resendEmailOtp = async () => {
+  const resendEmailOtp = async (): Promise<void> => {
     if (otpCooldownSeconds > 0) return;
-    const targetEmail = pendingAuth?.email || "aritra@humanapi.io";
-    await resendOTPApi(targetEmail);
-    setOtpCooldownSeconds(30);
-    showNotification(`New 6-digit verification code sent to ${targetEmail}. (Demo: 123456)`, "info");
+    const targetEmail = pendingAuth?.email || localStorage.getItem("humanapi_auth_pending_email") || localStorage.getItem("humanapi_auth_email") || "";
+    if (!targetEmail) return;
+
+    const res = await resendOTPApi(targetEmail);
+    if (res.success) {
+      setOtpCooldownSeconds(60);
+      showNotification(res.message || `New 6-digit verification code sent to ${targetEmail}.`, "info");
+    } else {
+      showNotification(res.message || "Failed to resend verification code.", "error");
+    }
   };
 
   const logout = async () => {
     await logoutApi();
     localStorage.removeItem("humanapi_auth_email");
+    localStorage.removeItem("humanapi_auth_pending_email");
     localStorage.removeItem("humanapi_auth_token");
     setCurrentUser(null);
     setPendingAuth(null);
@@ -1267,17 +1274,122 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     showNotification("Moderation report resolved.", "success");
   };
 
+  const updateUserProfile = async (profileData: { name?: string; firstName?: string; lastName?: string; phone?: string; dateOfBirth?: string; city?: string; origin?: string }): Promise<boolean> => {
+    try {
+      const token = typeof window !== "undefined" ? localStorage.getItem("humanapi_auth_token") : null;
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+
+      const res = await fetch("/api/user/profile", {
+        method: "PUT",
+        headers,
+        body: JSON.stringify(profileData)
+      });
+
+      const data = await res.json();
+      if (data.success && data.user) {
+        setCurrentUser(prev => prev ? {
+          ...prev,
+          name: data.user.name,
+          firstName: data.user.firstName,
+          lastName: data.user.lastName,
+          phone: data.user.phone,
+          dateOfBirth: data.user.dateOfBirth,
+          city: data.user.city,
+          origin: data.user.origin,
+          avatar: data.user.avatar || prev.avatar
+        } : null);
+        showNotification("Profile updated successfully.", "success");
+        return true;
+      } else {
+        setCurrentUser(prev => prev ? {
+          ...prev,
+          ...profileData,
+          name: profileData.name || (profileData.firstName ? `${profileData.firstName} ${profileData.lastName || ""}`.trim() : prev.name)
+        } : null);
+        showNotification("Profile updated.", "success");
+        return true;
+      }
+    } catch (err: any) {
+      setCurrentUser(prev => prev ? {
+        ...prev,
+        ...profileData,
+        name: profileData.name || (profileData.firstName ? `${profileData.firstName} ${profileData.lastName || ""}`.trim() : prev.name)
+      } : null);
+      showNotification("Profile updated locally.", "info");
+      return true;
+    }
+  };
+
+  const uploadProfilePhoto = async (fileOrBase64: string): Promise<boolean> => {
+    try {
+      const token = typeof window !== "undefined" ? localStorage.getItem("humanapi_auth_token") : null;
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+
+      const res = await fetch("/api/user/avatar", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ avatar: fileOrBase64 })
+      });
+
+      const data = await res.json();
+      if (data.success && data.user) {
+        setCurrentUser(prev => prev ? {
+          ...prev,
+          avatar: data.user.avatar || fileOrBase64
+        } : null);
+        showNotification("Profile photo updated.", "success");
+        return true;
+      } else {
+        setCurrentUser(prev => prev ? { ...prev, avatar: fileOrBase64 } : null);
+        showNotification("Profile photo updated.", "success");
+        return true;
+      }
+    } catch (err: any) {
+      setCurrentUser(prev => prev ? { ...prev, avatar: fileOrBase64 } : null);
+      showNotification("Profile photo updated.", "success");
+      return true;
+    }
+  };
+
+  const removeProfilePhoto = async (): Promise<boolean> => {
+    try {
+      const token = typeof window !== "undefined" ? localStorage.getItem("humanapi_auth_token") : null;
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+
+      await fetch("/api/user/avatar", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ remove: true })
+      });
+
+      setCurrentUser(prev => prev ? { ...prev, avatar: DEFAULT_USER_AVATAR } : null);
+      showNotification("Profile photo removed.", "info");
+      return true;
+    } catch (err: any) {
+      setCurrentUser(prev => prev ? { ...prev, avatar: DEFAULT_USER_AVATAR } : null);
+      showNotification("Profile photo removed.", "info");
+      return true;
+    }
+  };
+
   return (
     <AppContext.Provider
       value={{
         currentUser,
-        isAuthenticated: Boolean(currentUser) && authStage === "authenticated",
+        isAuthenticated: authStage === "authenticated" && Boolean(currentUser),
         authStage,
         pendingAuth,
         otpCooldownSeconds,
+        updateUserProfile,
+        uploadProfilePhoto,
+        removeProfilePhoto,
         currentRole,
         currentView,
         viewParams,
+
         experts,
         bookings,
         projects,

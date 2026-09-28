@@ -9,7 +9,7 @@ export const AuthModal: React.FC = () => {
   const { isAuthModalOpen, closeAuthModal, authModalMode, login, showNotification, navigate } = useApp();
 
   const [mode, setMode] = useState<"login" | "signup" | "forgot" | "otp">(authModalMode);
-  const [email, setEmail] = useState("demo.user@humanapi.test");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [intentRole, setIntentRole] = useState<"client" | "expert">("client");
@@ -20,9 +20,6 @@ export const AuthModal: React.FC = () => {
   useEffect(() => {
     if (isAuthModalOpen) {
       setMode(authModalMode);
-      if (authModalMode === "signup") {
-        setEmail("demo.user@humanapi.test");
-      }
     }
   }, [authModalMode, isAuthModalOpen]);
 
@@ -50,10 +47,16 @@ export const AuthModal: React.FC = () => {
 
   if (!isAuthModalOpen) return null;
 
-  const handleLoginSubmit = (e: React.FormEvent) => {
+  const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    login(email || "demo.user@humanapi.test", name || "Demo User", intentRole === "expert");
-    setMode("otp");
+    if (!email.trim()) {
+      showNotification("Please enter your email address.", "error");
+      return;
+    }
+    const res = await login(email.trim(), password, name, intentRole === "expert");
+    if (res?.success) {
+      setMode("otp");
+    }
   };
 
   const handleSignupSubmit = async (e: React.FormEvent) => {
@@ -62,23 +65,24 @@ export const AuthModal: React.FC = () => {
       showNotification("Please accept terms of service to proceed.", "error");
       return;
     }
-    const targetEmail = email.trim() || "demo.user@humanapi.test";
+    const targetEmail = email.trim();
+    if (!targetEmail) {
+      showNotification("Please enter your work email address.", "error");
+      return;
+    }
     const res = await signupApi({
       email: targetEmail,
-      name: name || "Demo User",
+      name: name.trim() || "User",
       password: password || "password123",
       intentRole
     });
     if (res.success) {
-      login(targetEmail, name || "Demo User", intentRole === "expert");
+      await login(targetEmail, password, name || "User", intentRole === "expert");
       setMode("otp");
     } else if (res.error && res.error.toLowerCase().includes("already exists")) {
-      const loginRes = await loginApi(targetEmail);
+      const loginRes = await login(targetEmail, password, name || "User", intentRole === "expert");
       if (loginRes.success) {
-        login(targetEmail, name || "Demo User", intentRole === "expert");
         setMode("otp");
-      } else {
-        showNotification(loginRes.error || res.error || "Signup failed.", "error");
       }
     } else {
       showNotification(res.error || "Signup failed.", "error");
@@ -87,7 +91,11 @@ export const AuthModal: React.FC = () => {
 
   const handleForgotSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const res = await forgotPasswordApi(email || "demo.user@humanapi.test");
+    if (!email.trim()) {
+      showNotification("Please enter your registered email address.", "error");
+      return;
+    }
+    const res = await forgotPasswordApi(email.trim());
     if (res.success) {
       showNotification(res.message || "Password recovery token sent to your email.", "info");
       setMode("login");

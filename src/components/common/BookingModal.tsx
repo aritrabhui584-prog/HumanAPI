@@ -12,15 +12,18 @@ import {
   Receipt,
   Lock,
   Building,
-  Wallet
+  Wallet,
+  AlertCircle
 } from "lucide-react";
 import { useCurrency, AnimatedPrice } from "../../lib/currency";
+import { getProfileCompletionDetails } from "../../lib/userUtils";
 import { PaymentMethodType } from "../../types";
 import { PaymentSuccessAnimation } from "./PaymentSuccessAnimation";
 import { HumanAPILoader, HumanAPILoadingButton } from "../loading";
 
 export const BookingModal: React.FC = () => {
   const {
+    currentUser,
     isBookingModalOpen,
     closeBookingModal,
     bookingModalExpert,
@@ -83,6 +86,7 @@ export const BookingModal: React.FC = () => {
   if (!isBookingModalOpen || !bookingModalExpert) return null;
 
   const expert = bookingModalExpert;
+  const profileCompletion = getProfileCompletionDetails(currentUser);
   const basePriceINR =
     selectedDuration === 5
       ? expert.pricing.duration5
@@ -96,6 +100,10 @@ export const BookingModal: React.FC = () => {
 
   const handleNextToPayment = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!profileCompletion.isComplete) {
+      showNotification("Complete your profile before booking a consultation.", "error");
+      return;
+    }
     if (!topic.trim()) {
       showNotification("Please specify what you need help with.", "error");
       return;
@@ -104,6 +112,10 @@ export const BookingModal: React.FC = () => {
   };
 
   const handleExecutePayment = async () => {
+    if (!profileCompletion.isComplete) {
+      showNotification("Complete your profile before booking a consultation.", "error");
+      return;
+    }
     setIsProcessing(true);
     setCheckoutStep("verifying");
 
@@ -130,7 +142,11 @@ export const BookingModal: React.FC = () => {
     } catch (err: any) {
       setIsProcessing(false);
       setCheckoutStep("payment");
-      showNotification("Payment verification failed. Please try again.", "error");
+      if (err.code === "PROFILE_INCOMPLETE" || err.message?.includes("Complete your profile")) {
+        showNotification("Complete your profile before booking a consultation.", "error");
+      } else {
+        showNotification("Payment verification failed. Please try again.", "error");
+      }
     }
   };
 
@@ -175,6 +191,59 @@ export const BookingModal: React.FC = () => {
           </button>
         </div>
 
+        {/* PROFILE INCOMPLETE GATE SCREEN (Requirements 7, 10) */}
+        {!profileCompletion.isComplete ? (
+          <div className="flex-1 min-h-0 p-6 sm:p-8 flex flex-col items-center justify-center text-center space-y-4 overflow-y-auto">
+            <div className="w-14 h-14 rounded-[16px] bg-[#C96F42]/10 text-[#C96F42] flex items-center justify-center">
+              <AlertCircle size={32} />
+            </div>
+            <div className="space-y-1 max-w-md">
+              <h3 className="font-serif font-bold text-xl text-[#342A24]">
+                Complete your profile before booking a consultation.
+              </h3>
+              <p className="text-xs sm:text-sm text-[#7B6C60]">
+                All clients are required to complete mandatory identity profile details before scheduling live technical consultations.
+              </p>
+            </div>
+
+            <div className="p-4 rounded-[16px] bg-[#F6F0E7] border border-[#E8DCCB] max-w-md w-full space-y-2 text-left text-xs">
+              <div className="flex justify-between items-center font-bold text-[#342A24]">
+                <span>Missing Profile Information</span>
+                <span className="text-[#C96F42] font-mono">{profileCompletion.percentage}% Complete</span>
+              </div>
+              <ul className="space-y-1 text-[#B85D3D] font-semibold">
+                {profileCompletion.missingFields.map(f => (
+                  <li key={f.key} className="flex items-center gap-2">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#B85D3D]" />
+                    <span>• {f.label}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            <div className="pt-2 flex flex-col sm:flex-row gap-3 w-full max-w-md justify-center">
+              <button
+                type="button"
+                onClick={() => {
+                  closeBookingModal();
+                  navigate("user-settings");
+                }}
+                className="w-full py-3 rounded-[12px] bg-[#C96F42] hover:bg-[#B85D3D] text-[#FFF9F2] text-xs font-bold shadow-warm-xs flex items-center justify-center gap-2 transition-colors"
+                id="booking-gate-complete-profile-btn"
+              >
+                <span>Complete Profile →</span>
+              </button>
+              <button
+                type="button"
+                onClick={closeBookingModal}
+                className="w-full sm:w-auto px-5 py-3 rounded-[12px] border border-[#E8DCCB] bg-[#FFF9F2] text-xs font-semibold text-[#342A24] transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        ) : (
+          <>
         {/* STEP 1: DETAILS & SCHEDULE */}
         {checkoutStep === "details" && (
           <form onSubmit={handleNextToPayment} className="flex-1 min-h-0 flex flex-col justify-between overflow-hidden">
@@ -548,6 +617,8 @@ export const BookingModal: React.FC = () => {
               </button>
             </div>
           </div>
+        )}
+        </>
         )}
       </div>
     </div>

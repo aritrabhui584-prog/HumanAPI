@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { HumanAPILogo } from "../brand/HumanAPILogo";
 import { useApp } from "../../context/AppContext";
-import { getUserDisplayName } from "../../lib/userUtils";
+import { getUserDisplayName, getUserAvatarUrl } from "../../lib/userUtils";
 import {
   Compass,
   Sparkles,
@@ -147,7 +147,7 @@ export const MobileNavigationDrawer: React.FC<MobileNavigationDrawerProps> = ({
                 <div className="space-y-3">
                   <div className="flex items-center gap-3 p-3 rounded-[14px] bg-[#F6F0E7] border border-[#E8DCCB] min-w-0">
                     <img
-                      src={currentUser.avatar}
+                      src={getUserAvatarUrl(currentUser)}
                       alt={getUserDisplayName(currentUser)}
                       className="w-10 h-10 rounded-[10px] object-cover border border-[#E8DCCB] shrink-0"
                     />

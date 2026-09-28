@@ -1,6 +1,6 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import { useApp } from "../../context/AppContext";
-import { getUserDisplayName } from "../../lib/userUtils";
+import { getUserDisplayName, getUserAvatarUrl, isDefaultAvatar, getProfileCompletionDetails } from "../../lib/userUtils";
 import {
   User,
   Mail,
@@ -15,11 +15,18 @@ import {
   Key,
   Download,
   Trash2,
-  Check
+  Check,
+  Upload,
+  AlertCircle,
+  Phone,
+  Calendar as CalendarIcon,
+  MapPin,
+  Globe
 } from "lucide-react";
 
 export const UserSettingsView: React.FC = () => {
-  const { currentUser, showNotification } = useApp();
+  const { currentUser, updateUserProfile, uploadProfilePhoto, removeProfilePhoto, showNotification } = useApp();
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // 28 — CATEGORY-BASED SETTINGS
   const [activeCategory, setActiveCategory] = useState<
@@ -29,17 +36,33 @@ export const UserSettingsView: React.FC = () => {
   // Profile Form State
   const [name, setName] = useState(getUserDisplayName(currentUser));
   const [email, setEmail] = useState(currentUser?.email || "");
+  const [phone, setPhone] = useState(currentUser?.phone || "");
+  const [dateOfBirth, setDateOfBirth] = useState(currentUser?.dateOfBirth || currentUser?.dob || "");
+  const [city, setCity] = useState(currentUser?.city || "");
+  const [origin, setOrigin] = useState(currentUser?.origin || "");
   const [title, setTitle] = useState("Lead Platform Architect");
   const [timezone, setTimezone] = useState("Asia/Kolkata (GMT+5:30)");
+  const [isSaving, setIsSaving] = useState(false);
 
   // Notifications State
   const [emailAlerts, setEmailAlerts] = useState(true);
   const [smsAlerts, setSmsAlerts] = useState(false);
-  const [calendarSync, setCalendarSync] = useState(true);
-  const [sessionRecordings, setSessionRecordings] = useState(true);
 
   // Security & Password
   const [twoFactorEnabled, setTwoFactorEnabled] = useState(true);
+
+  // Calculate live completion details
+  const draftUser = {
+    ...currentUser,
+    name,
+    email,
+    phone,
+    dateOfBirth,
+    city,
+    origin,
+    avatar: currentUser?.avatar
+  };
+  const completion = getProfileCompletionDetails(draftUser);
 
   const categories = [
     { id: "profile", label: "Profile", icon: User },
@@ -52,9 +75,42 @@ export const UserSettingsView: React.FC = () => {
     { id: "sessions", label: "Sessions & History", icon: Clock },
   ];
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate type (JPG, PNG, WebP)
+    const validTypes = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
+    if (!validTypes.includes(file.type.toLowerCase())) {
+      showNotification("Invalid file format. Please upload JPG, PNG, or WebP.", "error");
+      return;
+    }
+
+    // Validate size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      showNotification("File size exceeds 5MB limit.", "error");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = async () => {
+      const base64 = reader.result as string;
+      await uploadProfilePhoto(base64);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    showNotification("Settings updated successfully.", "success");
+    setIsSaving(true);
+    const success = await updateUserProfile({
+      name,
+      phone,
+      dateOfBirth,
+      city,
+      origin
+    });
+    setIsSaving(false);
   };
 
   return (
@@ -106,38 +162,156 @@ export const UserSettingsView: React.FC = () => {
               <form onSubmit={handleSave} className="space-y-5">
                 <div className="border-b border-[#E8DCCB]/80 pb-3">
                   <h3 className="font-serif font-bold text-lg text-[#342A24]">Profile Information</h3>
-                  <p className="text-xs text-[#7B6C60]">Your public details visible to specialists during consultation booking.</p>
+                  <p className="text-xs text-[#7B6C60]">Mandatory profile details required prior to booking expert consultations.</p>
                 </div>
 
+                {/* PROFILE COMPLETION PROGRESS BAR */}
+                <div className="p-4 rounded-[14px] bg-[#F6F0E7] border border-[#E8DCCB] space-y-2">
+                  <div className="flex items-center justify-between text-xs font-bold">
+                    <span className="text-[#342A24]">Profile Completion</span>
+                    <span className={completion.isComplete ? "text-[#77816C]" : "text-[#C96F42]"}>
+                      {completion.percentage}% {completion.isComplete ? "✓ Complete" : ""}
+                    </span>
+                  </div>
+                  <div className="w-full bg-[#E8DCCB] h-2 rounded-full overflow-hidden">
+                    <div
+                      className={`h-full transition-all duration-300 ${completion.isComplete ? "bg-[#77816C]" : "bg-[#C96F42]"}`}
+                      style={{ width: `${completion.percentage}%` }}
+                    />
+                  </div>
+                  {!completion.isComplete && (
+                    <p className="text-[11px] text-[#7B6C60]">
+                      Missing fields: {completion.missingFields.map(m => m.label).join(", ")}
+                    </p>
+                  )}
+                </div>
+
+                {/* PROFILE PHOTO UPLOAD / REMOVE */}
                 <div className="flex items-center gap-4">
                   <img
-                    src={currentUser?.avatar}
-                    alt={currentUser?.name}
+                    src={getUserAvatarUrl(currentUser)}
+                    alt={getUserDisplayName(currentUser)}
                     className="w-16 h-16 rounded-[14px] object-cover border border-[#E8DCCB]"
                   />
-                  <div>
-                    <button
-                      type="button"
-                      className="px-3 py-1.5 rounded-[8px] border border-[#E8DCCB] bg-[#F6F0E7] text-xs font-semibold text-[#342A24] hover:bg-[#E8DCCB]/60 transition-colors"
-                    >
-                      Change Avatar
-                    </button>
-                    <p className="text-[11px] text-[#7B6C60] mt-1">PNG, JPG up to 2MB</p>
+                  <div className="space-y-1.5">
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="file"
+                        ref={fileInputRef}
+                        onChange={handleFileChange}
+                        accept="image/jpeg,image/png,image/webp"
+                        className="hidden"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        className="px-3 py-1.5 rounded-[8px] border border-[#E8DCCB] bg-[#F6F0E7] text-xs font-semibold text-[#342A24] hover:bg-[#E8DCCB]/60 transition-colors flex items-center gap-1.5"
+                      >
+                        <Upload size={14} />
+                        <span>Upload Photo</span>
+                      </button>
+                      {!isDefaultAvatar(currentUser?.avatar) && (
+                        <button
+                          type="button"
+                          onClick={() => removeProfilePhoto()}
+                          className="px-3 py-1.5 rounded-[8px] border border-[#B85D3D]/30 text-[#B85D3D] hover:bg-[#B85D3D]/10 text-xs font-semibold transition-colors flex items-center gap-1.5"
+                        >
+                          <Trash2 size={14} />
+                          <span>Remove</span>
+                        </button>
+                      )}
+                    </div>
+                    <p className="text-[11px] text-[#7B6C60]">JPG, PNG, or WebP up to 5MB</p>
                   </div>
                 </div>
 
+                {/* 7 MANDATORY PROFILE FIELDS */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
                   <div>
-                    <label className="block font-semibold text-[#342A24] mb-1">Full Name</label>
+                    <label className="block font-semibold text-[#342A24] mb-1">
+                      Full Name <span className="text-[#C96F42]">*</span>
+                    </label>
                     <input
                       type="text"
                       value={name}
                       onChange={e => setName(e.target.value)}
+                      placeholder="e.g. Rahul Verma"
                       className="w-full p-2.5 rounded-[10px] bg-[#F6F0E7] border border-[#E8DCCB] text-[#342A24] focus:outline-none focus:border-[#C96F42]"
+                      required
                     />
                   </div>
+
                   <div>
-                    <label className="block font-semibold text-[#342A24] mb-1">Professional Role</label>
+                    <label className="block font-semibold text-[#342A24] mb-1">
+                      Email Address <span className="text-[#C96F42]">*</span>
+                    </label>
+                    <input
+                      type="email"
+                      value={email}
+                      disabled
+                      className="w-full p-2.5 rounded-[10px] bg-[#E8DCCB]/40 border border-[#E8DCCB] text-[#7B6C60] cursor-not-allowed"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-semibold text-[#342A24] mb-1">
+                      Phone Number <span className="text-[#C96F42]">*</span>
+                    </label>
+                    <input
+                      type="tel"
+                      value={phone}
+                      onChange={e => setPhone(e.target.value)}
+                      placeholder="+91 9876543210"
+                      className="w-full p-2.5 rounded-[10px] bg-[#F6F0E7] border border-[#E8DCCB] text-[#342A24] focus:outline-none focus:border-[#C96F42]"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-semibold text-[#342A24] mb-1">
+                      Date of Birth <span className="text-[#C96F42]">*</span>
+                    </label>
+                    <input
+                      type="date"
+                      value={dateOfBirth}
+                      onChange={e => setDateOfBirth(e.target.value)}
+                      className="w-full p-2.5 rounded-[10px] bg-[#F6F0E7] border border-[#E8DCCB] text-[#342A24] focus:outline-none focus:border-[#C96F42]"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-semibold text-[#342A24] mb-1">
+                      City <span className="text-[#C96F42]">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={city}
+                      onChange={e => setCity(e.target.value)}
+                      placeholder="e.g. Bengaluru"
+                      className="w-full p-2.5 rounded-[10px] bg-[#F6F0E7] border border-[#E8DCCB] text-[#342A24] focus:outline-none focus:border-[#C96F42]"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-semibold text-[#342A24] mb-1">
+                      Origin / Home Region <span className="text-[#C96F42]">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={origin}
+                      onChange={e => setOrigin(e.target.value)}
+                      placeholder="e.g. Karnataka, India"
+                      className="w-full p-2.5 rounded-[10px] bg-[#F6F0E7] border border-[#E8DCCB] text-[#342A24] focus:outline-none focus:border-[#C96F42]"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs pt-1">
+                  <div>
+                    <label className="block font-semibold text-[#342A24] mb-1">Professional Title</label>
                     <input
                       type="text"
                       value={title}
@@ -145,24 +319,24 @@ export const UserSettingsView: React.FC = () => {
                       className="w-full p-2.5 rounded-[10px] bg-[#F6F0E7] border border-[#E8DCCB] text-[#342A24] focus:outline-none focus:border-[#C96F42]"
                     />
                   </div>
-                </div>
-
-                <div className="text-xs">
-                  <label className="block font-semibold text-[#342A24] mb-1">Preferred Timezone</label>
-                  <input
-                    type="text"
-                    value={timezone}
-                    onChange={e => setTimezone(e.target.value)}
-                    className="w-full p-2.5 rounded-[10px] bg-[#F6F0E7] border border-[#E8DCCB] text-[#342A24] focus:outline-none focus:border-[#C96F42]"
-                  />
+                  <div>
+                    <label className="block font-semibold text-[#342A24] mb-1">Preferred Timezone</label>
+                    <input
+                      type="text"
+                      value={timezone}
+                      onChange={e => setTimezone(e.target.value)}
+                      className="w-full p-2.5 rounded-[10px] bg-[#F6F0E7] border border-[#E8DCCB] text-[#342A24] focus:outline-none focus:border-[#C96F42]"
+                    />
+                  </div>
                 </div>
 
                 <div className="pt-2">
                   <button
                     type="submit"
-                    className="px-5 py-2.5 rounded-[10px] bg-[#C96F42] hover:bg-[#B85D3D] text-[#FFF9F2] text-xs font-bold shadow-warm-xs transition-colors"
+                    disabled={isSaving}
+                    className="px-5 py-2.5 rounded-[10px] bg-[#C96F42] hover:bg-[#B85D3D] text-[#FFF9F2] text-xs font-bold shadow-warm-xs transition-colors disabled:opacity-50"
                   >
-                    Save Profile Changes
+                    {isSaving ? "Saving..." : "Save Profile Changes"}
                   </button>
                 </div>
               </form>
@@ -182,8 +356,8 @@ export const UserSettingsView: React.FC = () => {
                     <input
                       type="email"
                       value={email}
-                      onChange={e => setEmail(e.target.value)}
-                      className="w-full p-2.5 rounded-[10px] bg-[#F6F0E7] border border-[#E8DCCB] text-[#342A24]"
+                      disabled
+                      className="w-full p-2.5 rounded-[10px] bg-[#E8DCCB]/40 border border-[#E8DCCB] text-[#7B6C60] cursor-not-allowed"
                     />
                   </div>
                   <div className="p-3 rounded-[10px] bg-[#F6F0E7] border border-[#E8DCCB] flex items-center justify-between">
@@ -414,3 +588,5 @@ export const UserSettingsView: React.FC = () => {
     </div>
   );
 };
+
+export default UserSettingsView;

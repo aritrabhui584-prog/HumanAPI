@@ -1,5 +1,6 @@
 import { RawAuthResponse, NormalizedUser } from "./authTypes";
 import { UserRole, ExpertStatus } from "../types";
+import { DEFAULT_USER_AVATAR } from "../lib/userUtils";
 
 export function mapUser(raw: any): NormalizedUser {
   if (!raw) {
@@ -7,7 +8,7 @@ export function mapUser(raw: any): NormalizedUser {
       id: "u-guest",
       email: "guest@humanapi.io",
       name: "Guest User",
-      avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80",
+      avatar: DEFAULT_USER_AVATAR,
       role: "user",
       status: "active",
       isExpert: false,
@@ -38,7 +39,11 @@ export function mapUser(raw: any): NormalizedUser {
     name: raw.name || `${raw.firstName || raw.first_name || "Member"} ${raw.lastName || raw.last_name || ""}`.trim(),
     firstName: raw.firstName || raw.first_name || (raw.name ? raw.name.split(" ")[0] : "Member"),
     lastName: raw.lastName || raw.last_name || (raw.name ? raw.name.split(" ").slice(1).join(" ") : ""),
-    avatar: raw.avatar || raw.avatarUrl || raw.user_avatar || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80",
+    avatar: raw.avatar || raw.avatarUrl || raw.user_avatar || DEFAULT_USER_AVATAR,
+    phone: raw.phone || raw.phoneNumber || undefined,
+    dateOfBirth: raw.dateOfBirth || raw.dob || undefined,
+    city: raw.city || undefined,
+    origin: raw.origin || undefined,
     role,
     status,
     isExpert: Boolean(raw.isExpert) || rawRole === "expert",

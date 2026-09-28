@@ -18,6 +18,10 @@ export interface RawAuthResponse {
     lastName?: string;
     avatar?: string;
     avatarUrl?: string;
+    phone?: string;
+    dateOfBirth?: string;
+    city?: string;
+    origin?: string;
     role?: string;
     status?: string;
     isExpert?: boolean;
@@ -43,6 +47,10 @@ export interface NormalizedUser {
   firstName?: string;
   lastName?: string;
   avatar: string;
+  phone?: string;
+  dateOfBirth?: string;
+  city?: string;
+  origin?: string;
   role: UserRole;
   status: "active" | "restricted" | "suspended" | "banned";
   isExpert: boolean;

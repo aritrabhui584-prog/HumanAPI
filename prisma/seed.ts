@@ -327,13 +327,24 @@ async function main() {
   // 5. SEED CLIENT & ADMIN USERS
   const clientUser = await prisma.user.upsert({
     where: { email: "demo.user@humanapi.test" },
-    update: { role: "CLIENT", emailVerified: true },
+    update: {
+      role: "CLIENT",
+      emailVerified: true,
+      phone: "+91 9876543210",
+      dateOfBirth: "1994-06-15",
+      city: "Bengaluru",
+      origin: "Karnataka"
+    },
     create: {
       email: "demo.user@humanapi.test",
       passwordHash: "$2a$10$e8wJbH2vU.P8R/3o8tO5ve8K8wU2W3xX4y5z6a7b8c9d0e1f2g3h",
       firstName: "Demo",
       lastName: "User",
       avatarUrl: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80",
+      phone: "+91 9876543210",
+      dateOfBirth: "1994-06-15",
+      city: "Bengaluru",
+      origin: "Karnataka",
       role: "CLIENT",
       status: "ACTIVE",
       emailVerified: true
